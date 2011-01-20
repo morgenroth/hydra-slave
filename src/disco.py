@@ -76,7 +76,7 @@ class DiscoverySocket(object):
         
     def scan(self, addr, timeout = 5, maxnodes = None):
         ''' create an empty list '''
-        l = []
+        node_dict = dict()
         
         ''' send out a discovery request '''
         self.sock.sendto('\x00' + "HELLO", addr)
@@ -98,13 +98,11 @@ class DiscoverySocket(object):
                 (data, address) = fd.recvfrom(1024)
                 values = struct.unpack_from("!BI", data)
                 if values[0] == 1:
-                    itm = (data[5:(values[1]+5)], address)
-                    l.append(itm)
-                    
+                    node_dict[ data[5:(values[1]+5)] ] = address
                     # we are done if the maximum number of nodes is reached
                     if maxnodes != None:
-                        if maxnodes == len(l):
-                            return l
+                        if maxnodes == len(node_dict):
+                            return node_dict
                 
             for fd in out_:
                 pass
@@ -112,5 +110,5 @@ class DiscoverySocket(object):
             for fd in exc_:
                 pass
             
-        return l
+        return node_dict
     

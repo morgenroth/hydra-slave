@@ -13,22 +13,6 @@ import os
 from xml.dom import minidom
 from disco import DiscoverySocket
 
-def scan(address, timeout = 60, maxnodes = None):
-    ''' create a discovery socket '''
-    ds = DiscoverySocket()
-    
-    ''' scan for neighboring nodes '''
-    l = ds.scan(address, timeout, maxnodes)
-    
-    ''' create an empty node list '''
-    n = []
-    
-    ''' create control object with the discovery data '''
-    for node in l:
-        n.append( NodeControl(node[0], node[1]) )
-    
-    return n
-
 class VirtualNode(object):
     '''
     classdocs
@@ -77,13 +61,13 @@ class VirtualNode(object):
     def destroy(self):
         try:
             self.dom.destroy()
-        except libvirt.libvirtError:
+        except:
             pass
     
     def undefine(self):
         try:
             self.dom.undefine()
-        except libvirt.libvirtError:
+        except:
             pass
     
         
