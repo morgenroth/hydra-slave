@@ -30,7 +30,7 @@ if __name__ == '__main__':
     ''' parse arguments '''
     (options, args) = parser.parse_args()
 
-    ds = DiscoveryService(("225.16.16.1", 3234))
+    ds = DiscoveryService(("225.16.16.1", 3234), options.minterface)
     ds.start()
 
     vc = libvirt.open(options.virtdriver)

@@ -14,12 +14,12 @@ class DiscoveryService(threading.Thread):
     classdocs
     '''
     
-    def __init__(self, addr):
+    def __init__(self, addr, listen = "0.0.0.0"):
         '''
         Constructor
         '''
         threading.Thread.__init__(self)
-        self.ANY = "0.0.0.0"
+        self.listen = listen
         self.daemon = True
         
         # Create the socket
@@ -38,8 +38,8 @@ class DiscoveryService(threading.Thread):
         s.bind(('', addr[1]))
 
         # Set some more multicast options
-        s.setsockopt(socket.SOL_IP, socket.IP_MULTICAST_IF, socket.inet_aton(self.ANY))
-        s.setsockopt(socket.SOL_IP, socket.IP_ADD_MEMBERSHIP, socket.inet_aton(addr[0]) + socket.inet_aton(self.ANY))
+        s.setsockopt(socket.SOL_IP, socket.IP_MULTICAST_IF, socket.inet_aton(self.listen))
+        s.setsockopt(socket.SOL_IP, socket.IP_ADD_MEMBERSHIP, socket.inet_aton(addr[0]) + socket.inet_aton(self.listen))
 
         self.sock = s
         self.addr = addr
@@ -56,7 +56,7 @@ class DiscoveryService(threading.Thread):
             
     def shutdown(self):
         self.running = False
-        self.sock.setsockopt(socket.SOL_IP, socket.IP_DROP_MEMBERSHIP, socket.inet_aton(self.addr[0]) + socket.inet_aton(self.ANY))
+        self.sock.setsockopt(socket.SOL_IP, socket.IP_DROP_MEMBERSHIP, socket.inet_aton(self.addr[0]) + socket.inet_aton(self.listen))
         self.sock.close()
 
 
