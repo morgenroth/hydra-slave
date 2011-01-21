@@ -14,12 +14,13 @@ class DiscoveryService(threading.Thread):
     classdocs
     '''
     
-    def __init__(self, addr, port):
+    def __init__(self, addr):
         '''
         Constructor
         '''
         threading.Thread.__init__(self)
         self.ANY = "0.0.0.0"
+        self.daemon = True
         
         # Create the socket
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -34,11 +35,11 @@ class DiscoveryService(threading.Thread):
         s.setsockopt(socket.SOL_IP, socket.IP_MULTICAST_LOOP, 1)
 
         # Bind to the port
-        s.bind(('', port))
+        s.bind(('', addr[1]))
 
         # Set some more multicast options
         s.setsockopt(socket.SOL_IP, socket.IP_MULTICAST_IF, socket.inet_aton(self.ANY))
-        s.setsockopt(socket.SOL_IP, socket.IP_ADD_MEMBERSHIP, socket.inet_aton(addr) + socket.inet_aton(self.ANY))
+        s.setsockopt(socket.SOL_IP, socket.IP_ADD_MEMBERSHIP, socket.inet_aton(addr[0]) + socket.inet_aton(self.ANY))
 
         self.sock = s
         self.addr = addr
@@ -55,7 +56,7 @@ class DiscoveryService(threading.Thread):
             
     def shutdown(self):
         self.running = False
-        self.sock.setsockopt(socket.SOL_IP, socket.IP_DROP_MEMBERSHIP, socket.inet_aton(self.addr) + socket.inet_aton(self.ANY))
+        self.sock.setsockopt(socket.SOL_IP, socket.IP_DROP_MEMBERSHIP, socket.inet_aton(self.addr[0]) + socket.inet_aton(self.ANY))
         self.sock.close()
 
 
@@ -64,7 +65,7 @@ class DiscoverySocket(object):
     classdocs
     '''
     
-    def __init__(self):
+    def __init__(self, address = ('', 0)):
         '''
         Constructor
         '''
@@ -73,6 +74,7 @@ class DiscoverySocket(object):
         ''' Make the socket multicast-aware, and set TTL. '''
         self.sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 20) # Change TTL (=20) to suit
         self.sock.setsockopt(socket.SOL_IP, socket.IP_MULTICAST_LOOP, 1)
+        self.sock.bind(address)
         
     def scan(self, addr, timeout = 5, maxnodes = None):
         ''' create an empty list '''

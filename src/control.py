@@ -45,6 +45,9 @@ class VirtualNode(object):
         ''' copy the image '''
         shutil.copy(image_template, image)
         
+        print("image preparation for " + self.name)
+        os.system("/bin/bash " + self.storage_path + "/prepare_image_node.sh " + self.storage_path + " " + self.name + " " + image)
+        
         ''' rename the node '''
         doc.getElementsByTagName("name")[0].firstChild.nodeValue = "hydra-" + self.name
         
@@ -140,11 +143,11 @@ class NodeControl(object):
         self.script(script)
         
     def connectionUp(self, address):
-        script = "/usr/sbin/iptables -A OUTPUT -d " + address + "/32 -j ACCEPT" + \
-            "/usr/sbin/iptables -A INPUT -s " + address + "/32 -j ACCEPT"
+        script = "/usr/sbin/iptables -A OUTPUT -d " + address + "/32 -j ACCEPT\n" + \
+            "/usr/sbin/iptables -A INPUT -s " + address + "/32 -j ACCEPT\n"
         self.script(script)
         
     def connectionDown(self, address):
-        script = "/usr/sbin/iptables -D OUTPUT -d " + address + "/32 -j ACCEPT" + \
-            "/usr/sbin/iptables -D INPUT -s " + address + "/32 -j ACCEPT"
+        script = "/usr/sbin/iptables -D OUTPUT -d " + address + "/32 -j ACCEPT\n" + \
+            "/usr/sbin/iptables -D INPUT -s " + address + "/32 -j ACCEPT\n"
         self.script(script)
