@@ -142,7 +142,7 @@ class Setup(object):
             if len(self.nodes) == active_node_count:
                 for n in self.nodes:
                     ''' create control object with the discovery data '''
-                    self.scan_nodes.append( control.NodeControl(n, node_dict[n]) )
+                    self.scan_nodes.append( control.NodeControl(n, node_dict[n], bindaddr = self.mcast_interface) )
                 break
             
             """ wait some time until the next scan is started """

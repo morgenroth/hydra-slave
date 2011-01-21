@@ -79,7 +79,7 @@ class NodeControl(object):
     classdocs
     '''
     
-    def __init__(self, name, address, port = 3486):
+    def __init__(self, name, address, port = 3486, bindaddr = None):
         '''
         Constructor
         '''
@@ -88,6 +88,9 @@ class NodeControl(object):
         self.port = port
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         #self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        
+        if bindaddr != None:
+            self.sock.bind((bindaddr, 0))
 
         
     def connect(self):
