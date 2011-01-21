@@ -105,9 +105,22 @@ class Setup(object):
         """ scan for nodes """
         self.scan_for_nodes()
         
-        """ connect to all nodes """
+        """ connect to all nodes and call setup """
         for n in self.scan_nodes:
             n.connect()
+            
+            ''' list of open addresses for the node '''
+            oalist = []
+            
+            ''' if the multicast interface is defined use it as open address '''
+            if self.mcast_interface != "":
+                oalist.append(self.mcast_interface)
+                
+            ''' open the connection to the default address of the slave '''
+            oalist.append(socket.gethostbyname(socket.gethostname()))
+                
+            ''' call the setup procedure '''
+            n.setup(oalist)
         
     def scan_for_nodes(self):
         ''' create a discovery socket '''

@@ -128,15 +128,15 @@ class NodeControl(object):
         except socket.error, msg:
             print("[ERROR] " + str(msg))
             
-    def setup(self, gateway, dns):
-        script = "/usr/sbin/iptables -F\n" + \
-            "/usr/sbin/iptables -A OUTPUT -d " + gateway + "/32 -j ACCEPT\n" + \
-            "/usr/sbin/iptables -A OUTPUT -d " + dns + "/32 -j ACCEPT\n" + \
-            "/usr/sbin/iptables -A OUTPUT -d 192.168.56.255/32 -j ACCEPT\n" + \
-            "/usr/sbin/iptables -A OUTPUT -d 255.255.255.255/32 -j ACCEPT\n" + \
+    def setup(self, open_addresses):
+        script = "/usr/sbin/iptables -F\n"
+        
+        for addr in open_addresses:
+            script = script + "/usr/sbin/iptables -A OUTPUT -d " + addr + "/32 -j ACCEPT\n" + \
+            "/usr/sbin/iptables -A INPUT -s " + addr + "/32 -j ACCEPT\n"
+            
+        script = script + "/usr/sbin/iptables -A OUTPUT -d 255.255.255.255/32 -j ACCEPT\n" + \
             "/usr/sbin/iptables -A OUTPUT -d 127.0.0.1/8 -j ACCEPT\n" + \
-            "/usr/sbin/iptables -A INPUT -s " + gateway + "/32 -j ACCEPT\n" + \
-            "/usr/sbin/iptables -A INPUT -s " + dns + "/32 -j ACCEPT\n" + \
             "/usr/sbin/iptables -A INPUT -s 127.0.0.1/8 -j ACCEPT\n" + \
             "/usr/sbin/iptables -P OUTPUT DROP\n" + \
             "/usr/sbin/iptables -P INPUT DROP\n"
