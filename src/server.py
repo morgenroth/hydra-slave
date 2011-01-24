@@ -92,7 +92,7 @@ class ControlPointServer(SocketServer.BaseRequestHandler):
                 # report that we are ready
                 self.request.send("READY\n")
 
-class ReusableTCPServer(SocketServer.ThreadingTCPServer):
+class ReusableTCPServer(SocketServer.TCPServer):
     allow_reuse_address = True
 
 def serve_controlpoint(address, setup):
