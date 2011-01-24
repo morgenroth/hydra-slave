@@ -61,6 +61,7 @@ class Setup(object):
         self.download(self.baseurl + "/magicmount.sh")
         self.download(self.baseurl + "/" + self.virt_template)
         self.download(self.baseurl + "/" + self.name + "/nodes.txt")
+        self.download(self.baseurl + "/monitor-nodes.txt")
         print("done")
         
         self.load()
@@ -126,6 +127,11 @@ class Setup(object):
                 
             ''' open the connection to the default address of the slave '''
             oalist.append(socket.gethostbyname(socket.gethostname()))
+            
+            ''' read the monitor node list '''
+            monitor_list = open(os.path.join(self.workdir, "monitor-nodes.txt"), "r")
+            for maddress in monitor_list.readlines():
+                oalist.append(maddress)
                 
             ''' call the setup procedure '''
             n.setup(oalist)
