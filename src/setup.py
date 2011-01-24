@@ -131,7 +131,7 @@ class Setup(object):
             ''' read the monitor node list '''
             monitor_list = open(os.path.join(self.workdir, "monitor-nodes.txt"), "r")
             for maddress in monitor_list.readlines():
-                oalist.append(maddress)
+                oalist.append(maddress.strip())
                 
             ''' call the setup procedure '''
             n.setup(oalist)

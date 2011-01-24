@@ -69,7 +69,10 @@ class VirtualNode(object):
         self.dom = self.conn.defineXML(doc.toxml())
         
     def create(self):
-        self.dom.create()
+        try:
+            self.dom.create()
+        except:
+            pass
     
     def destroy(self):
         try:
