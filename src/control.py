@@ -54,7 +54,9 @@ class VirtualNode(object):
         elif virt_type == "vbox":
             virt_image = os.path.join(self.storage_path, "hydra-" + self.name + ".vdi")
             os.system("VBoxManage convertfromraw " + image + " " + virt_image + " --format VDI --variant Standard")
-            pass
+            
+            # close the link to the old image
+            self.execute("VBoxManage closemedium disk " + virt_image)
         
         ''' rename the node '''
         doc.getElementsByTagName("name")[0].firstChild.nodeValue = "hydra-" + self.name
