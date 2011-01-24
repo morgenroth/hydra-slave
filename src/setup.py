@@ -35,8 +35,8 @@ class Setup(object):
         self.virt_nodes = None
         self.virt_connection = libvirt.open(virtdriver)
         self.mcast_interface = mcast_interface
-        (virt_type, data) = virtdriver.split(":", 1)
-        self.virt_template = "node-template." + virt_type + ".xml"
+        (self.virt_type, data) = virtdriver.split(":", 1)
+        self.virt_template = "node-template." + self.virt_type + ".xml"
 
         if self.virt_connection == None:
             print("could not connect to libvirt")
@@ -90,7 +90,7 @@ class Setup(object):
             
     def prepare(self):
         for v in self.virt_nodes:
-            v.define(os.path.join(self.workdir, "template.image"), os.path.join(self.workdir, self.virt_template))
+            v.define(self.virt_type, os.path.join(self.workdir, "template.image"), os.path.join(self.workdir, self.virt_template))
         
     def download(self, url):
         """Copy the contents of a file from a given URL

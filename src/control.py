@@ -32,7 +32,7 @@ class VirtualNode(object):
         except:
             print("create a new instance of " + self.name + ".")
         
-    def define(self, image_template, xml_template):
+    def define(self, virt_type, image_template, xml_template):
         if self.dom != None:
             self.undefine()
         
@@ -40,7 +40,7 @@ class VirtualNode(object):
         doc = minidom.parse(xml_template)
         
         ''' define the path for the image file '''
-        image = self.storage_path + "/hydra-" + self.name + ".image"
+        image = os.path.join(self.storage_path, "hydra-" + self.name + ".image")
         
         ''' copy the image '''
         shutil.copy(image_template, image)
@@ -48,13 +48,21 @@ class VirtualNode(object):
         print("image preparation for " + self.name)
         os.system("/bin/bash " + self.storage_path + "/prepare_image_node.sh " + self.storage_path + " " + self.name + " " + image)
         
+        ''' convert the raw image to virtualizers specific format '''
+        if virt_type == "qemu":
+            virt_image = image
+        elif virt_type == "vbox":
+            virt_image = os.path.join(self.storage_path, "hydra-" + self.name + ".vdi")
+            os.system("VBoxManage convertfromraw " + image + " " + virt_image + " --format VDI --variant Standard")
+            pass
+        
         ''' rename the node '''
         doc.getElementsByTagName("name")[0].firstChild.nodeValue = "hydra-" + self.name
         
         for disk in doc.getElementsByTagName("disk"):
             source = disk.getElementsByTagName("source")[0]
             if source.hasAttribute("file"):
-                source.setAttribute("file", os.path.abspath(image))
+                source.setAttribute("file", os.path.abspath(virt_image))
         
         self.dom = self.conn.defineXML(doc.toxml())
         
