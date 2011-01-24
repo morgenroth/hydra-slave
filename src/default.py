@@ -9,7 +9,6 @@ from disco import DiscoverySocket, DiscoveryService
 from control import NodeControl
 from optparse import OptionParser
 import server
-import libvirt
 import sys
 from setup import Setup
 
@@ -32,14 +31,9 @@ if __name__ == '__main__':
 
     ds = DiscoveryService(("225.16.16.1", 3234), options.minterface)
     ds.start()
-
-    vc = libvirt.open(options.virtdriver)
-    if vc == None:
-        print("could not connect to libvirt")
-        sys.exit(-1)
-        
+    
     ''' create a setup object '''
-    s = Setup(vc, options.minterface)
+    s = Setup(options.minterface, options.virtdriver)
     
     try:
         server.serve_controlpoint(('', 4242), s)

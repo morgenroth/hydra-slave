@@ -10,6 +10,8 @@ import shutil
 import urllib
 import socket
 import time
+import sys
+import libvirt
 from disco import DiscoverySocket
 import control 
 
@@ -21,7 +23,7 @@ class Setup(object):
     __virt_connection = None
     __minterface = None
     
-    def __init__(self, virt_connection, mcast_interface):
+    def __init__(self, mcast_interface, virtdriver):
         '''
         Constructor
         '''
@@ -31,8 +33,14 @@ class Setup(object):
         self.nodes = None
         self.scan_nodes = None
         self.virt_nodes = None
-        self.virt_connection = virt_connection
+        self.virt_connection = libvirt.open(virtdriver)
         self.mcast_interface = mcast_interface
+        (virt_type, data) = virtdriver.split(":", 1)
+        self.virt_template = "node-template." + virt_type + ".xml"
+
+        if self.virt_connection == None:
+            print("could not connect to libvirt")
+            sys.exit(-1)
         
     def loadURL(self, url):
         self.baseurl = url
@@ -51,7 +59,7 @@ class Setup(object):
         self.download(self.baseurl + "/prepare_image_node.sh")
         self.download(self.baseurl + "/modify_image_node.sh")
         self.download(self.baseurl + "/magicmount.sh")
-        self.download(self.baseurl + "/virt-template.xml")
+        self.download(self.baseurl + "/" + self.virt_template)
         self.download(self.baseurl + "/" + self.name + "/nodes.txt")
         print("done")
         
@@ -82,7 +90,7 @@ class Setup(object):
             
     def prepare(self):
         for v in self.virt_nodes:
-            v.define(self.workdir + "/template.image", self.workdir + "/virt-template.xml")
+            v.define(os.path.join(self.workdir, "template.image"), os.path.join(self.workdir, self.virt_template))
         
     def download(self, url):
         """Copy the contents of a file from a given URL
