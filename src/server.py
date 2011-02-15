@@ -58,11 +58,14 @@ class ControlPointServer(SocketServer.BaseRequestHandler):
                     _setup.prepare()
                     
                 elif line == "ACTION":
-                    (action, data) = data.split("\n", 1)
-                    print("call action: " + action)
-                    ret = _setup.action(action)
-                    if ret != None:
-                        self.request.send(ret + "\n")
+                    try:
+                        (action, data) = data.split("\n", 1)
+                        print("call action: " + action)
+                        ret = _setup.action(action)
+                        if ret != None:
+                            self.request.send(ret + "\n")
+                    except ValueError:
+                        pass
                     continue
                 
                 elif line == "QUIT":
