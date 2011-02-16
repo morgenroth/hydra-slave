@@ -69,7 +69,10 @@ class ControlPointServer(SocketServer.BaseRequestHandler):
                     continue
                 
                 elif line == "QUIT":
-                    self.request.send("BYE\n")
+                    try:
+                        self.request.send("BYE\n")
+                    except:
+                        pass
                     return
                     
                 elif line == "RUN":

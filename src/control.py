@@ -155,8 +155,7 @@ class NodeControl(object):
             "/usr/sbin/iptables -A OUTPUT -d 127.0.0.1/8 -j ACCEPT\n" + \
             "/usr/sbin/iptables -A INPUT -s 127.0.0.1/8 -j ACCEPT\n" + \
             "/usr/sbin/iptables -P OUTPUT DROP\n" + \
-            "/usr/sbin/iptables -P INPUT DROP\n" + \
-            "/etc/init.d/ibrdtn start\n"
+            "/usr/sbin/iptables -P INPUT DROP\n"
         self.script(script)
         
     def connectionUp(self, address):
