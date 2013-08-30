@@ -4,7 +4,6 @@ Created on 21.01.2011
 @author: morgenro
 '''
 
-import SocketServer
 import os
 import shutil
 import urllib
@@ -16,15 +15,13 @@ from disco import DiscoverySocket
 import control 
 from node import NodeList
 import tarfile
+import ConfigParser
 
 class Setup(object):
     """
-    load the configuration from a webserver and
-    hold any meta data about the partial setup
+    This class manages the node setup of a specific session.
     """
-    __virt_connection = None
-    __minterface = None
-    
+
     def __init__(self, session_id, config):
         '''
         Constructor
@@ -33,8 +30,13 @@ class Setup(object):
         """ create a node list """
         self.nodes = NodeList()
         self.session_id = session_id
+        
+        self.sudomode = config.get('general', 'sudomode')
+        self.shell = config.get('general', 'shell')
+        
         self.workdir = os.path.join("hydra-setup", session_id)
-        self.baseurl = config.get("general", "url") + "/dl/" + session_id
+        self.baseurl = config.get("general", "url") + "/dl"
+        self.sessionurl = self.baseurl + "/" + session_id
         self.nodes = None
         self.scan_nodes = None
         self.virt_nodes = None
@@ -53,6 +55,16 @@ class Setup(object):
     def log(self, message):
         print("[" + self.session_id + "] " + message)
         
+    def sudo(self, command):
+        self.log("(sudo) " + str(command))
+        
+        if self.sudomode == "plain":
+            os.system("sudo " + str(command))
+        elif self.sudomode == "gksu":
+            os.system("gksu '" + str(command) + "'")
+        elif self.sudomode == "mockup":
+            pass
+        
     def load(self):
         """ delete the old stuff """
         self.cleanup()
@@ -69,7 +81,7 @@ class Setup(object):
             (dirname, extension) = f.split(".", 1)
             
             """ download tar archive """
-            self.download(self.baseurl + "/" + f)
+            self.download(self.sessionurl + "/" + f)
             
             """ create directory for content of the archive """
             destdir = os.path.join(self.workdir, dirname)
@@ -94,8 +106,24 @@ class Setup(object):
         #self.download(self.baseurl + "/monitor-nodes.txt")
         self.log("done")
         
-        return
+    def prepare_base(self):
+        base_path = os.path.join(self.workdir, "base")
+        setup_path = os.path.join(self.workdir, "setup")
         
+        self.log("read setup configuration: config.properties")
+        baseconfig = ConfigParser.RawConfigParser()
+        baseconfig.read(base_path + "/config.properties")
+        
+        """ download base image file """
+        imagefile = baseconfig.get("image", "file")
+        self.download(self.baseurl + "/" + imagefile)
+        imagefile_path = os.path.join(self.workdir, imagefile)
+        
+        """ run preparation script """
+        self.sudo(self.shell + " " + base_path + "/prepare_image_base.sh " + imagefile_path + " " + base_path + " " + setup_path)
+        
+        
+    def prepare_nodes(self):
         self.nodes = []
         self.scan_nodes = []
         self.virt_nodes = []
@@ -117,8 +145,7 @@ class Setup(object):
             self.log(str(len(self.nodes)) + " nodes loaded.")
         except:
             pass
-            
-    def prepare(self):
+        
         for v in self.virt_nodes:
             v.define(self.virt_type, os.path.join(self.workdir, "template.image"), os.path.join(self.workdir, self.virt_template))
         

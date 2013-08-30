@@ -4,9 +4,6 @@ Created on 30.08.2013
 @author: morgenro
 '''
 
-from setup import Setup
-import server
-
 class Session(object):
     '''
     classdocs
@@ -25,7 +22,7 @@ class Session(object):
     def prepare(self, data):
         print("[" + self.session_key + "] preparing setup")
         self.setup.load()
-        #self.setup.prepare()
+        self.setup.prepare_base()
     
     def action(self, data):
         try:

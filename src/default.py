@@ -3,15 +3,10 @@
 # hydra opportunistic emulator
 # (c) 2010 IBR
 
-import sys
-import time
 import ConfigParser
-from disco import DiscoverySocket, DiscoveryService
-from control import NodeControl
+from disco import DiscoveryService
 from optparse import OptionParser
 import server
-import sys
-from node import NodeList
 
 if __name__ == '__main__':
     print("- hydra slave node 0.2 -")

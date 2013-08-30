@@ -7,11 +7,9 @@ Created on 18.01.2011
 import struct
 import socket
 import libvirt
-import sys
 import shutil
 import os
 from xml.dom import minidom
-from disco import DiscoverySocket
 
 class VirtualNode(object):
     '''
