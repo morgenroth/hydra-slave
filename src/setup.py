@@ -14,6 +14,8 @@ import sys
 import libvirt
 from disco import DiscoverySocket
 import control 
+from node import NodeList
+import tarfile
 
 class Setup(object):
     """
@@ -23,50 +25,77 @@ class Setup(object):
     __virt_connection = None
     __minterface = None
     
-    def __init__(self, mcast_interface, virtdriver):
+    def __init__(self, session_id, config):
         '''
         Constructor
         '''
-        self.name = socket.gethostname()
-        self.workdir = "hydra-setup"
-        self.baseurl = None
+        
+        """ create a node list """
+        self.nodes = NodeList()
+        self.session_id = session_id
+        self.workdir = os.path.join("hydra-setup", session_id)
+        self.baseurl = config.get("general", "url") + "/dl/" + session_id
         self.nodes = None
         self.scan_nodes = None
         self.virt_nodes = None
-        self.virt_connection = libvirt.open(virtdriver)
-        self.mcast_interface = mcast_interface
-        (self.virt_type, data) = virtdriver.split(":", 1)
+        self.virt_driver = config.get('template','virturl')
+        self.virt_connection = libvirt.open( self.virt_driver )
+        self.mcast_interface = config.get('master','interface')
+        (self.virt_type, data) = self.virt_driver.split(":", 1)
         self.virt_template = "node-template." + self.virt_type + ".xml"
 
         if self.virt_connection == None:
-            print("could not connect to libvirt")
+            self.log("could not connect to libvirt")
             sys.exit(-1)
+            
+        self.log("New session created")
+            
+    def log(self, message):
+        print("[" + self.session_id + "] " + message)
         
-    def loadURL(self, url):
-        self.baseurl = url
-        
+    def load(self):
         """ delete the old stuff """
         self.cleanup()
             
         """ create the working directory """
         try:
-            os.mkdir(self.workdir)
+            os.makedirs(self.workdir)
         except OSError:
             pass
         
-        print("downloading setup files")
-        self.download(self.baseurl + "/template.image")
-        self.download(self.baseurl + "/prepare_image_node.sh")
-        self.download(self.baseurl + "/modify_image_node.sh")
-        self.download(self.baseurl + "/magicmount.sh")
-        self.download(self.baseurl + "/" + self.virt_template)
-        self.download(self.baseurl + "/" + self.name + "/nodes.txt")
-        self.download(self.baseurl + "/monitor-nodes.txt")
-        print("done")
+        files = [ "base.tar.gz", "setup.tar.gz" ]
         
-        self.load()
+        for f in files:
+            (dirname, extension) = f.split(".", 1)
+            
+            """ download tar archive """
+            self.download(self.baseurl + "/" + f)
+            
+            """ create directory for content of the archive """
+            destdir = os.path.join(self.workdir, dirname)
+            
+            try:
+                os.makedirs(destdir)
+            except OSError:
+                pass
         
-    def load(self):
+            if extension == "tar.gz":
+                """ extract the tar archive """
+                tar = tarfile.open(os.path.join(self.workdir, f))
+                tar.extractall(destdir)
+                tar.close()
+        
+        #self.download(self.baseurl + "/template.image")
+        #self.download(self.baseurl + "/prepare_image_node.sh")
+        #self.download(self.baseurl + "/modify_image_node.sh")
+        #self.download(self.baseurl + "/magicmount.sh")
+        #self.download(self.baseurl + "/" + self.virt_template)
+        #self.download(self.baseurl + "/" + self.name + "/nodes.txt")
+        #self.download(self.baseurl + "/monitor-nodes.txt")
+        self.log("done")
+        
+        return
+        
         self.nodes = []
         self.scan_nodes = []
         self.virt_nodes = []
@@ -85,7 +114,7 @@ class Setup(object):
             for n in self.nodes:
                 self.virt_nodes.append( control.VirtualNode(self.virt_connection, n, storage_path) )
                 
-            print(str(len(self.nodes)) + " nodes loaded.")
+            self.log(str(len(self.nodes)) + " nodes loaded.")
         except:
             pass
             
@@ -98,13 +127,14 @@ class Setup(object):
         to a local file.
         """
         try:
+            self.log("downloading " + url)
             webFile = urllib.urlopen(url)
             localFile = open(self.workdir + "/" + url.split('/')[-1], 'w')
             localFile.write(webFile.read())
             webFile.close()
             localFile.close()
         except IOError:
-            print("could not get url " + url)
+            self.log("could not get url " + url)
     
     def startup(self):
         """ switch on all nodes """
@@ -150,7 +180,7 @@ class Setup(object):
                 if n in node_dict:
                     active_node_count = active_node_count + 1
             
-            print(str(active_node_count) + " nodes discovered")
+            self.log(str(active_node_count) + " nodes discovered")
             
             """ all nodes available, create new node list """
             if len(self.nodes) == active_node_count:

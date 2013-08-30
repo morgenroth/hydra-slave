@@ -5,12 +5,13 @@
 
 import sys
 import time
+import ConfigParser
 from disco import DiscoverySocket, DiscoveryService
 from control import NodeControl
 from optparse import OptionParser
 import server
 import sys
-from setup import Setup
+from node import NodeList
 
 if __name__ == '__main__':
     print("- hydra slave node 0.2 -")
@@ -19,23 +20,24 @@ if __name__ == '__main__':
     parser = OptionParser(usage=usage)
     
     """ add options to the parser """
-    parser.add_option("-t", "--tmp-dir", dest="tmpdir", default="./hydra-setup",
-        help="define a temporary directory")
-    parser.add_option("-i", "--multicast-interface", dest="minterface", default="",
-        help="specify the outgoing multicast interface to reach the virtual nodes")
-    parser.add_option("-d", "--libvirt-driver", dest="virtdriver", default="qemu:///system",
-        help="specify the driver for libvirt (e.g. 'qemu:///system')")
+    parser.add_option("-c", "--config-file", dest="configfile", default="slave.properties",
+        help="specify the configuration file")
     
     ''' parse arguments '''
     (options, args) = parser.parse_args()
-
-    ds = DiscoveryService(("225.16.16.1", 3234), options.minterface)
+    
+    """ read configuration """
+    config = ConfigParser.RawConfigParser()
+    print("read configuration: " + options.configfile)
+    config.read(options.configfile)
+    
+    """ load discovery address from configuration """
+    discovery_address = (config.get('master','discovery_addr'), config.getint('master','discovery_port'))
+    
+    ds = DiscoveryService(discovery_address, config.get('master','interface'))
     ds.start()
     
-    ''' create a setup object '''
-    s = Setup(options.minterface, options.virtdriver)
-    
     try:
-        server.serve_controlpoint(('', 4242), s)
+        server.serve_controlpoint(config)
     except KeyboardInterrupt:
         pass

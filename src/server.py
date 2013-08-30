@@ -5,104 +5,85 @@ Created on 19.01.2011
 '''
 
 import SocketServer
-import os
-import shutil
-import urllib
 import socket
-import time
-from disco import DiscoverySocket
-import control
+from node import NodeList
+from session import Session
+from setup import Setup
 
-""" definition of the static setup object """
-_setup = None
-
-class ControlPointServer(SocketServer.BaseRequestHandler):
-    """
-    The RequestHandler class for our server.
-
-    It is instantiated once per connection to the server, and must
-    override the handle() method to implement communication to the
-    client.
-    """
+class ControlPointServer(SocketServer.StreamRequestHandler):
     
-    def setup(self):
-        print("master connection opened (" + self.client_address[0] + ":" + str(self.client_address[1]) + ")")
-        try:
-            _setup.load()
-        except:
-            pass
-    
-    def finish(self):
-        print("master connection closed (" + self.client_address[0] + ":" + str(self.client_address[1]) + ")")
+    session = None
 
     def handle(self):
-        data = ""
+        print("master connection opened (" + self.client_address[0] + ":" + str(self.client_address[1]) + ")")
         
-        while True:
-            while not "\n" in data:
-                try:
-                    data = data + self.request.recv(1500)
-                except:
-                    return
+        self.wfile.write("### HYDRA SLAVE ###\n")
+        self.wfile.write("Identifier: " + socket.gethostname() + "\n")
+        
+        data = self.rfile.readline().strip()
+        
+        while data:
+            self.process(data)
+            data = self.rfile.readline().strip()
             
-            """ execute the received command """
-            while "\n" in data:
-                (line, data) = data.split("\n", 1)
-                line = line.strip()
+        print("master connection closed (" + self.client_address[0] + ":" + str(self.client_address[1]) + ")")
+            
+    def process(self, data):
+        if data.startswith("session"):
+            (key, skey) = data.split(" ", 1)
+            
+            if skey in self.server.setups:
+                setup = self.server.setups[skey]
+            else:
+                setup = Setup(skey, self.server.config)
+                self.server.setups[skey] = setup
+            
+            self.session = Session(self.server.config, skey, setup)
+            
+            self.wfile.write("200 SESSION-KEY-SET " + self.session.session_key + "\n")
+            
+        elif self.session:
+            if data.startswith("prepare"):
+                self.session.prepare(data)
+                self.wfile.write("200 PREPARED\n")
                 
-                if line == "PREPARE":
-                    """ prepare the setup """
-                    (url, data) = data.split("\n", 1)
-                    print("preparing setup with url " + url)
-                    _setup.loadURL(url)
-                    _setup.prepare()
-                    
-                elif line == "ACTION":
-                    try:
-                        (action, data) = data.split("\n", 1)
-                        print("call action: " + action)
-                        ret = _setup.action(action)
-                        if ret != None:
-                            self.request.send(ret + "\n")
-                    except ValueError:
-                        pass
-                    continue
+            elif data.startswith("action"):
+                self.session.action(data)
+                self.wfile.write("200 ACTION-EXECUTED\n")
                 
-                elif line == "QUIT":
-                    try:
-                        self.request.send("BYE\n")
-                    except:
-                        pass
-                    return
-                    
-                elif line == "RUN":
-                    """ run the nodes """
-                    print("run all the nodes")
-                    _setup.startup()
-                    
-                elif line == "STOP":
-                    """ stop the nodes """
-                    print("stop all the nodes")
-                    _setup.shutdown()
-                    
-                elif line == "CLEANUP":
-                    """ cleanup the setup """
-                    print("cleaning up")
-                    
-                    """ stop all nodes """
-                    _setup.shutdown()
-                    
-                    """ delete the setup folder """
-                    _setup.cleanup()
+            elif data.startswith("quit"):
+                try:
+                    self.wfile.write("200 BYE\n")
+                except:
+                    pass
                 
-                # report that we are ready
-                self.request.send("READY\n")
+            elif data.startswith("run"):
+                self.session.run(data)
+                self.wfile.write("200 STARTED\n")
+                
+            elif data.startswith("stop"):
+                self.session.stop(data)
+                self.wfile.write("200 STOPPED\n")
+                
+            elif data.startswith("cleanup"):
+                self.session.cleanup(data)
+                self.wfile.write("200 CLEAN-UP-DONE\n")
+                
+            else:
+                self.wfile.write("404 COMMAND-NOT-FOUND\n")
+                
+        else:
+            self.wfile.write("300 SESSION-KEY-NOT-SET\n")
+                
+class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
+    allow_reuse_address = 1
+    daemon_threads = True
 
-class ReusableTCPServer(SocketServer.TCPServer):
-    allow_reuse_address = True
-
-def serve_controlpoint(address, setup):
-    global _setup
-    _setup = setup
-    server = ReusableTCPServer(address, ControlPointServer)
+def serve_controlpoint(config):
+    address = ('', config.getint('general','port'))
+    
+    server = ThreadedTCPServer(address, ControlPointServer)
+    server.setups =  {}
+    server.config  = config
+    server.nodes = NodeList()
     server.serve_forever()
