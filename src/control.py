@@ -6,7 +6,6 @@ Created on 18.01.2011
 
 import struct
 import socket
-import libvirt
 import shutil
 import os
 from xml.dom import minidom
@@ -15,11 +14,12 @@ class VirtualNode(object):
     '''
     classdocs
     '''
-    def __init__(self, setup, conn, name):
+    def __init__(self, setup, conn, name, address):
         '''
         Constructor
         '''
         self.name = name
+        self.address = address
         self.dom = None
         self.conn = conn
         self.setupobj = setup
@@ -45,7 +45,18 @@ class VirtualNode(object):
         shutil.copy(image_template, image)
         
         self.setupobj.log("image preparation for " + self.name)
-        self.setupobj.sudo("/bin/bash " + self.setupobj.paths['base'] + "/prepare_image_node.sh " + image + " " + self.setupobj.paths['base'] + " " + self.setupobj.paths['setup'] + " " + self.name)
+        
+        """ run individual preparation script """
+        params = [ "/bin/bash",
+                  self.setupobj.paths['base'] + "/prepare_image_node.sh",
+                  image,
+                  self.setupobj.paths['base'],
+                  self.setupobj.paths['setup'],
+                  self.name,
+                  self.address[0],
+                  self.address[1] ]
+        
+        self.setupobj.sudo(" ".join(params))
         
         ''' convert the raw image to virtualizers specific format '''
         if virt_type == "qemu":

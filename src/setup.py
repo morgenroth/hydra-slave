@@ -117,7 +117,13 @@ class Setup(object):
         self.virt_template = os.path.join(self.paths['base'], "node-template." + self.virt_type + ".xml")
         
         """ run preparation script """
-        self.sudo(self.shell + " " + self.paths['base'] + "/prepare_image_base.sh " + self.paths['imagefile'] + " " + self.paths['base'] + " " + self.paths['setup'])
+        params = [ self.shell,
+                  self.paths['base'] + "/prepare_image_base.sh",
+                  self.paths['imagefile'],
+                  self.paths['base'],
+                  self.paths['setup'] ]
+                  
+        self.sudo(" ".join(params))
         
         """ strip .gz extension """
         if self.paths['imagefile'].endswith(".gz"):
@@ -126,9 +132,9 @@ class Setup(object):
         """ create path for image files """
         os.makedirs(self.paths['images'])
         
-    def add_node(self, nodeId):
+    def add_node(self, nodeId, address):
         """ create a virtual node object """
-        v = control.VirtualNode(self, self.virt_connection, nodeId)
+        v = control.VirtualNode(self, self.virt_connection, nodeId, address)
         
         """ add the virtual node object """
         self.nodes[nodeId] = v

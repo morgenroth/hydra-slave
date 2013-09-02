@@ -25,9 +25,12 @@ class Session(object):
         self.setup.prepare_base()
         
     def add_node(self, data):
-        (action, data) = data.split(" ", 1)
-        print("[" + self.session_key + "] add node '" + data + "'")
-        self.setup.add_node(data)
+        try:
+            (action, data, address, netmask) = data.split(" ", 3)
+            print("[" + self.session_key + "] add node '" + data + "'")
+            self.setup.add_node(data, (address, netmask))
+        except ValueError:
+            pass
         
     def remove_node(self, data):
         (action, data) = data.split(" ", 1)
