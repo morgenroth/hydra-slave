@@ -183,18 +183,24 @@ class NodeControl(object):
         for addr in open_addresses:
             script.append("/usr/sbin/iptables -A OUTPUT -d " + addr + "/32 -j ACCEPT")
             script.append("/usr/sbin/iptables -A INPUT -s " + addr + "/32 -j ACCEPT")
-            
-        script.append("/usr/sbin/iptables -A OUTPUT -d 255.255.255.255/32 -j ACCEPT")
+
+        """ allow loopback traffic """
         script.append("/usr/sbin/iptables -A OUTPUT -d 127.0.0.1/8 -j ACCEPT")
         script.append("/usr/sbin/iptables -A INPUT -s 127.0.0.1/8 -j ACCEPT")
+
+        """ allow multicast traffic """
+        script.append("/usr/sbin/iptables -A OUTPUT -m pkttype --pkt-type multicast -j ACCEPT")
+        script.append("/usr/sbin/iptables -A OUTPUT --protocol igmp -j ACCEPT")
+        script.append("/usr/sbin/iptables -A OUTPUT --dst 224.0.0.0/4 -j ACCEPT")
+        
         script.append("/usr/sbin/iptables -P OUTPUT DROP")
         script.append("/usr/sbin/iptables -P INPUT DROP")
         
         self.script('\n'.join(script))
         
     def connectionUp(self, address):
-        script = [ "/usr/sbin/iptables -A OUTPUT -d " + address + "/32 -j ACCEPT",
-                  "/usr/sbin/iptables -A INPUT -s " + address + "/32 -j ACCEPT" ]
+        script = [ "/usr/sbin/iptables -I OUTPUT -d " + address + "/32 -j ACCEPT",
+                  "/usr/sbin/iptables -I INPUT -s " + address + "/32 -j ACCEPT" ]
         self.script('\n'.join(script))
         
     def connectionDown(self, address):
@@ -204,7 +210,7 @@ class NodeControl(object):
         
     def recv_response(self, data = None):
         response = []
-        (code, data) = self.file.readline().split(' ', 1)
+        (code, msg) = self.file.readline().split(' ', 1)
         
         if int(code) == 201:
             """ continue """
