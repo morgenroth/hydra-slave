@@ -22,13 +22,14 @@ class VirtualNode(object):
         self.name = name
         self.dom = None
         self.conn = conn
-        self.setup = setup
+        self.setupobj = setup
+        self.control = None
         
         try:
             self.dom = conn.lookupByName("hydra-" + self.name)
-            self.setup.log("previous instance of " + self.name + " found.")
+            self.setupobj.log("previous instance of " + self.name + " found.")
         except:
-            self.setup.log("create a new instance of " + self.name + ".")
+            self.setupobj.log("create a new instance of " + self.name + ".")
         
     def define(self, virt_type, image_template, xml_template):
         if self.dom != None:
@@ -38,13 +39,13 @@ class VirtualNode(object):
         doc = minidom.parse(xml_template)
         
         ''' define the path for the image file '''
-        image = os.path.join(self.setup.paths['images'], "hydra-" + self.name + ".image")
+        image = os.path.join(self.setupobj.paths['images'], "hydra-" + self.name + ".image")
         
         ''' copy the image '''
         shutil.copy(image_template, image)
         
-        self.setup.log("image preparation for " + self.name)
-        self.setup.sudo("/bin/bash " + self.setup.paths['base'] + "/prepare_image_node.sh " + image + " " + self.setup.paths['base'] + " " + self.setup.paths['setup'] + " " + self.name)
+        self.setupobj.log("image preparation for " + self.name)
+        self.setupobj.sudo("/bin/bash " + self.setupobj.paths['base'] + "/prepare_image_node.sh " + image + " " + self.setupobj.paths['base'] + " " + self.setupobj.paths['setup'] + " " + self.name)
         
         ''' convert the raw image to virtualizers specific format '''
         if virt_type == "qemu":
@@ -90,10 +91,11 @@ class NodeControl(object):
     classdocs
     '''
     
-    def __init__(self, name, address, port = 3486, bindaddr = None):
+    def __init__(self, setup, name, address, port = 3486, bindaddr = None):
         '''
         Constructor
         '''
+        self.setupobj = setup
         self.name = name
         self.address = address
         self.port = port
@@ -107,40 +109,43 @@ class NodeControl(object):
     def connect(self):
         try:
             self.sock.connect((self.address[0], self.port))
+            
+            """ TODO: receive and decode node banner """
+            
         except socket.error, msg:
-            self.setup.log("[ERROR] " + str(msg))
+            self.setupobj.log("[ERROR] " + str(msg))
             raise msg
 
     def close(self):
         try:
             self.sock.close()
         except socket.error, msg:
-            self.setup.log("[ERROR] " + str(msg))
+            self.setupobj.log("[ERROR] " + str(msg))
     
     def position(self, lon, lat, alt = 0.0):
-        self.setup.log("new position for node " + self.name)
+        self.setupobj.log("new position for node " + self.name)
         try:
             data = struct.pack("!Bfff", 2, lon, lat, alt)
             self.sock.send(data)
         except socket.error, msg:
-            self.setup.log("[ERROR] " + str(msg))
+            self.setupobj.log("[ERROR] " + str(msg))
     
     def script(self, data):
-        self.setup.log("call script data on " + self.name)
+        self.setupobj.log("call script data on " + self.name)
         try:
             header = struct.pack("!BI", 1, len(data))
             self.sock.send(header)
             self.sock.send(data)
         except socket.error, msg:
-            self.setup.log("[ERROR] " + str(msg))
+            self.setupobj.log("[ERROR] " + str(msg))
         
     def shutdown(self):
-        self.setup.log("halt node " + self.name)
+        self.setupobj.log("halt node " + self.name)
         try:
             data = struct.pack("!B", 3)
             self.sock.send(data)
         except socket.error, msg:
-            self.setup.log("[ERROR] " + str(msg))
+            self.setupobj.log("[ERROR] " + str(msg))
             
     def setup(self, open_addresses):
         script = "/usr/sbin/iptables -F\n"

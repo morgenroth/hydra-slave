@@ -76,7 +76,7 @@ class DiscoverySocket(object):
         self.sock.setsockopt(socket.SOL_IP, socket.IP_MULTICAST_LOOP, 1)
         self.sock.bind(address)
         
-    def scan(self, addr, timeout = 5, maxnodes = None):
+    def scan(self, addr, timeout = 5, maxnodes = None, setup = None):
         ''' create an empty list '''
         node_dict = dict()
         
@@ -100,7 +100,12 @@ class DiscoverySocket(object):
                 (data, address) = fd.recvfrom(1024)
                 values = struct.unpack_from("!BI", data)
                 if values[0] == 1:
-                    node_dict[ data[5:(values[1]+5)] ] = address
+                    name = data[5:(values[1]+5)]
+                    
+                    if setup != None:
+                        setup.callback_discovered(name, address)
+                        
+                    node_dict[ name ] = address
                     # we are done if the maximum number of nodes is reached
                     if maxnodes != None:
                         if maxnodes == len(node_dict):

@@ -20,8 +20,7 @@ class Setup(object):
     """
     This class manages the node setup of a specific session.
     """
-    scan_nodes = []
-    virt_nodes = {}
+    nodes = {}
     paths = {}
 
     def __init__(self, session_id, config):
@@ -132,7 +131,7 @@ class Setup(object):
         v = control.VirtualNode(self, self.virt_connection, nodeId)
         
         """ add the virtual node object """
-        self.virt_nodes[nodeId] = v
+        self.nodes[nodeId] = v
         
         """ define / create the node object """
         v.define(self.virt_type, self.paths['imagefile'], self.virt_template)
@@ -142,9 +141,9 @@ class Setup(object):
         
     def remove_node(self, nodeId):
         try:
-            v = self.virt_nodes[nodeId]
+            v = self.nodes[nodeId]
             v.undefine()
-            del self.virt_nodes[nodeId]
+            del self.nodes[nodeId]
             self.log("node '" + nodeId + "' undefined")
         except:
             self.log("error while removing node '" + nodeId + "'")
@@ -165,15 +164,15 @@ class Setup(object):
     
     def startup(self):
         """ switch on all nodes """
-        for v in self.virt_nodes:
+        for name, v in self.nodes.iteritems():
             v.create()
             
         """ scan for nodes """
         self.scan_for_nodes()
         
         """ connect to all nodes and call setup """
-        for n in self.scan_nodes:
-            n.connect()
+        for name, v in self.nodes.iteritems():
+            v.control.connect()
             
             ''' list of open addresses for the node '''
             oalist = []
@@ -186,12 +185,12 @@ class Setup(object):
             oalist.append(socket.gethostbyname(socket.gethostname()))
             
             ''' read the monitor node list '''
-            monitor_list = open(os.path.join(self.paths['workspace'], "monitor-nodes.txt"), "r")
+            monitor_list = open(os.path.join(self.paths['base'], "monitor-nodes.txt"), "r")
             for maddress in monitor_list.readlines():
                 oalist.append(maddress.strip())
                 
             ''' call the setup procedure '''
-            n.setup(oalist)
+            v.control.setup(oalist)
         
     def scan_for_nodes(self):
         ''' create a discovery socket '''
@@ -199,33 +198,36 @@ class Setup(object):
         
         while True:
             ''' scan for neighboring nodes '''
-            node_dict = ds.scan(("225.16.16.1", 3232), 2)
+            ds.scan(("225.16.16.1", 3232), 2, None, self)
         
-            """ check if all nodes are available """
+            """ count the number of discovered nodes """
             active_node_count = 0
-            for n in self.nodes:
-                if n in node_dict:
+            for name, v in self.nodes.iteritems():
+                if v.control != None:
                     active_node_count = active_node_count + 1
             
             self.log(str(active_node_count) + " nodes discovered")
             
-            """ all nodes available, create new node list """
-            if len(self.nodes) == active_node_count:
-                for n in self.nodes:
-                    ''' create control object with the discovery data '''
-                    self.scan_nodes.append( control.NodeControl(n, node_dict[n], bindaddr = self.mcast_interface) )
+            if active_node_count == len(self.nodes):
                 break
             
             """ wait some time until the next scan is started """
             time.sleep(10)
+            
+    def callback_discovered(self, name, address):
+        if name in self.nodes:
+            v = self.nodes[name]
+            if v.control == None:
+                self.log("New node '" + name + "' (" + str(address[0]) + ":" + str(address[1]) +") discovered")
+                v.control = control.NodeControl(self, v.name, address, bindaddr = self.mcast_interface)
     
     def shutdown(self):
-        for nodeId, v in self.virt_nodes.iteritems():
+        for nodeId, v in self.nodes.iteritems():
             v.destroy()
             self.log("node '" + nodeId + "' destroyed")
     
     def cleanup(self):
-        for nodeId, v in self.virt_nodes.iteritems():
+        for nodeId, v in self.nodes.iteritems():
             v.undefine()
             self.log("node '" + nodeId + "' undefined")
             
@@ -233,13 +235,12 @@ class Setup(object):
         if os.path.exists(self.paths['workspace']):
             shutil.rmtree(self.paths['workspace'])
             
-        self.scan_nodes = []
-        self.virt_nodes = {}
+        self.nodes = {}
             
     def action(self, action):
         if action == "LIST":
             ret = ""
-            for n in self.scan_nodes:
+            for n in self.nodes:
                 ret = ret + n.name + " " + n.address[0] + "\n"
             ret = ret + "EOL"
             return ret
@@ -294,9 +295,3 @@ class Setup(object):
             elif cmd == "DOWN":
                 # send the connection down command
                 n.connectionDown(address)
-
-    def getNode(self, name):
-        for n in self.scan_nodes:
-            if n.name == name:
-                return n
-        return None
