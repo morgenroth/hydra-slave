@@ -229,7 +229,14 @@ class Setup(object):
     
     def shutdown(self):
         for nodeId, v in self.nodes.iteritems():
+            """ close control connection """
+            if v.control != None:
+                v.control.close()
+                v.control = None
+            
+            """ destroy (turn-off) the node """
             v.destroy()
+            
             self.log("node '" + nodeId + "' destroyed")
     
     def cleanup(self):
