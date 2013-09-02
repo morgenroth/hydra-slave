@@ -15,7 +15,7 @@ class VirtualNode(object):
     '''
     classdocs
     '''
-    def __init__(self, conn, name, storage_path):
+    def __init__(self, setup, conn, name, storage_path):
         '''
         Constructor
         '''
@@ -23,12 +23,13 @@ class VirtualNode(object):
         self.storage_path = storage_path
         self.dom = None
         self.conn = conn
+        self.setup = setup
         
         try:
             self.dom = conn.lookupByName("hydra-" + self.name)
-            print("previous instance of " + self.name + " found.")
+            self.setup.log("previous instance of " + self.name + " found.")
         except:
-            print("create a new instance of " + self.name + ".")
+            self.setup.log("create a new instance of " + self.name + ".")
         
     def define(self, virt_type, image_template, xml_template):
         if self.dom != None:
@@ -43,8 +44,8 @@ class VirtualNode(object):
         ''' copy the image '''
         shutil.copy(image_template, image)
         
-        print("image preparation for " + self.name)
-        os.system("/bin/bash " + self.storage_path + "/prepare_image_node.sh " + self.storage_path + " " + self.name + " " + image)
+        self.setup.log("image preparation for " + self.name)
+        self.setup.sudo("/bin/bash " + self.storage_path + "/prepare_image_node.sh " + self.storage_path + " " + self.name + " " + image)
         
         ''' convert the raw image to virtualizers specific format '''
         if virt_type == "qemu":
@@ -108,39 +109,39 @@ class NodeControl(object):
         try:
             self.sock.connect((self.address[0], self.port))
         except socket.error, msg:
-            print("[ERROR] " + str(msg))
+            self.setup.log("[ERROR] " + str(msg))
             raise msg
 
     def close(self):
         try:
             self.sock.close()
         except socket.error, msg:
-            print("[ERROR] " + str(msg))
+            self.setup.log("[ERROR] " + str(msg))
     
     def position(self, lon, lat, alt = 0.0):
-        print("new position for node " + self.name)
+        self.setup.log("new position for node " + self.name)
         try:
             data = struct.pack("!Bfff", 2, lon, lat, alt)
             self.sock.send(data)
         except socket.error, msg:
-            print("[ERROR] " + str(msg))
+            self.setup.log("[ERROR] " + str(msg))
     
     def script(self, data):
-        print("call script data on " + self.name)
+        self.setup.log("call script data on " + self.name)
         try:
             header = struct.pack("!BI", 1, len(data))
             self.sock.send(header)
             self.sock.send(data)
         except socket.error, msg:
-            print("[ERROR] " + str(msg))
+            self.setup.log("[ERROR] " + str(msg))
         
     def shutdown(self):
-        print("halt node " + self.name)
+        self.setup.log("halt node " + self.name)
         try:
             data = struct.pack("!B", 3)
             self.sock.send(data)
         except socket.error, msg:
-            print("[ERROR] " + str(msg))
+            self.setup.log("[ERROR] " + str(msg))
             
     def setup(self, open_addresses):
         script = "/usr/sbin/iptables -F\n"

@@ -13,7 +13,6 @@ import sys
 import libvirt
 from disco import DiscoverySocket
 import control 
-from node import NodeList
 import tarfile
 import ConfigParser
 
@@ -21,6 +20,9 @@ class Setup(object):
     """
     This class manages the node setup of a specific session.
     """
+    scan_nodes = []
+    virt_nodes = {}
+
 
     def __init__(self, session_id, config):
         '''
@@ -28,7 +30,6 @@ class Setup(object):
         '''
         
         """ create a node list """
-        self.nodes = NodeList()
         self.session_id = session_id
         
         self.sudomode = config.get('general', 'sudomode')
@@ -37,14 +38,14 @@ class Setup(object):
         self.workdir = os.path.join("hydra-setup", session_id)
         self.baseurl = config.get("general", "url") + "/dl"
         self.sessionurl = self.baseurl + "/" + session_id
-        self.nodes = None
-        self.scan_nodes = None
-        self.virt_nodes = None
+
         self.virt_driver = config.get('template','virturl')
         self.virt_connection = libvirt.open( self.virt_driver )
         self.mcast_interface = config.get('master','interface')
         (self.virt_type, data) = self.virt_driver.split(":", 1)
-        self.virt_template = "node-template." + self.virt_type + ".xml"
+        
+        """ define the storage path for images """
+        self.images_path = os.path.join(self.workdir, "images")
 
         if self.virt_connection == None:
             self.log("could not connect to libvirt")
@@ -97,13 +98,6 @@ class Setup(object):
                 tar.extractall(destdir)
                 tar.close()
         
-        #self.download(self.baseurl + "/template.image")
-        #self.download(self.baseurl + "/prepare_image_node.sh")
-        #self.download(self.baseurl + "/modify_image_node.sh")
-        #self.download(self.baseurl + "/magicmount.sh")
-        #self.download(self.baseurl + "/" + self.virt_template)
-        #self.download(self.baseurl + "/" + self.name + "/nodes.txt")
-        #self.download(self.baseurl + "/monitor-nodes.txt")
         self.log("done")
         
     def prepare_base(self):
@@ -117,37 +111,38 @@ class Setup(object):
         """ download base image file """
         imagefile = baseconfig.get("image", "file")
         self.download(self.baseurl + "/" + imagefile)
-        imagefile_path = os.path.join(self.workdir, imagefile)
+        
+        """ define path of the image file """
+        self.imagefile_path = os.path.join(self.workdir, imagefile)
+
+        """ define path to virt template """        
+        self.virt_template = os.path.join(base_path, "node-template." + self.virt_type + ".xml")
         
         """ run preparation script """
-        self.sudo(self.shell + " " + base_path + "/prepare_image_base.sh " + imagefile_path + " " + base_path + " " + setup_path)
+        self.sudo(self.shell + " " + base_path + "/prepare_image_base.sh " + self.imagefile_path + " " + base_path + " " + setup_path)
         
+        """ strip .gz extension """
+        if self.imagefile_path.endswith(".gz"):
+            self.imagefile_path = os.path.splitext(self.imagefile_path)[0]
         
-    def prepare_nodes(self):
-        self.nodes = []
-        self.scan_nodes = []
-        self.virt_nodes = []
+    def add_node(self, nodeId):
+        """ create a virtual node object """
+        v = control.VirtualNode(self, self.virt_connection, nodeId, self.workdir)
         
-        try:
-            """ read the nodes file """
-            fd = open(self.workdir + "/nodes.txt", "r")
-            for l in fd.readlines():
-                self.nodes.append( l.strip() )
-            fd.close()
+        """ add the virtual node object """
+        self.virt_nodes[nodeId] = v
+        
+        """ define / create the node object """
+        v.define(self.virt_type, self.imagefile_path, self.virt_template)
             
-            """ define the storage path for images """
-            storage_path = self.workdir
-            
-            """ create virtual nodes """
-            for n in self.nodes:
-                self.virt_nodes.append( control.VirtualNode(self.virt_connection, n, storage_path) )
-                
-            self.log(str(len(self.nodes)) + " nodes loaded.")
-        except:
-            pass
+        """ debug """
+        self.log("node '" + nodeId + "' defined")
         
-        for v in self.virt_nodes:
-            v.define(self.virt_type, os.path.join(self.workdir, "template.image"), os.path.join(self.workdir, self.virt_template))
+    def remove_node(self, nodeId):
+        v = self.virt_nodes[nodeId]
+        v.undefine()
+        del self.virt_nodes[nodeId]
+        self.log("node '" + nodeId + "' undefined")
         
     def download(self, url):
         """Copy the contents of a file from a given URL
@@ -220,22 +215,21 @@ class Setup(object):
             time.sleep(10)
     
     def shutdown(self):
-        if self.virt_nodes != None:
-            for v in self.virt_nodes:
-                v.destroy()
+        for nodeId, v in self.virt_nodes.iteritems():
+            v.destroy()
+            self.log("node '" + nodeId + "' destroyed")
     
     def cleanup(self):
-        if self.virt_nodes != None:
-            for v in self.virt_nodes:
-                v.undefine()
+        for nodeId, v in self.virt_nodes.iteritems():
+            v.undefine()
+            self.log("node '" + nodeId + "' undefined")
             
         """ delete the old stuff """
         if os.path.exists(self.workdir):
             shutil.rmtree(self.workdir)
             
-        self.nodes = []
         self.scan_nodes = []
-        self.virt_nodes = []
+        self.virt_nodes = {}
             
     def action(self, action):
         if action == "LIST":

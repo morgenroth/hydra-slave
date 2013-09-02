@@ -23,7 +23,17 @@ class Session(object):
         print("[" + self.session_key + "] preparing setup")
         self.setup.load()
         self.setup.prepare_base()
-    
+        
+    def add_node(self, data):
+        (action, data) = data.split(" ", 1)
+        print("[" + self.session_key + "] add node '" + data + "'")
+        self.setup.add_node(data)
+        
+    def remove_node(self, data):
+        (action, data) = data.split(" ", 1)
+        print("[" + self.session_key + "] remove node '" + data + "'")
+        self.setup.remove_node(data)
+        
     def action(self, data):
         try:
             (action, data) = data.split("\n", 1)

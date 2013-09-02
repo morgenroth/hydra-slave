@@ -6,7 +6,6 @@ Created on 19.01.2011
 
 import SocketServer
 import socket
-from node import NodeList
 from session import Session
 from setup import Setup
 
@@ -47,6 +46,14 @@ class ControlPointServer(SocketServer.StreamRequestHandler):
                 self.session.prepare(data)
                 self.wfile.write("200 PREPARED\n")
                 
+            elif data.startswith("add-node"):
+                self.session.add_node(data)
+                self.wfile.write("200 ADDED\n")
+                
+            elif data.startswith("remove-node"):
+                self.session.remove_node(data)
+                self.wfile.write("200 REMOVED\n")
+                
             elif data.startswith("action"):
                 self.session.action(data)
                 self.wfile.write("200 ACTION-EXECUTED\n")
@@ -85,5 +92,4 @@ def serve_controlpoint(config):
     server = ThreadedTCPServer(address, ControlPointServer)
     server.setups =  {}
     server.config  = config
-    server.nodes = NodeList()
     server.serve_forever()
