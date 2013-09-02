@@ -22,31 +22,33 @@ class Setup(object):
     """
     scan_nodes = []
     virt_nodes = {}
-
+    paths = {}
 
     def __init__(self, session_id, config):
         '''
         Constructor
         '''
-        
-        """ create a node list """
         self.session_id = session_id
         
         self.sudomode = config.get('general', 'sudomode')
         self.shell = config.get('general', 'shell')
         
-        self.workdir = os.path.join("hydra-setup", session_id)
+        self.mcast_interface = config.get('master','interface')
+        
+        """ define basic paths """
+        self.paths['workspace'] = os.path.join("hydra-setup", session_id)
+        self.paths['images'] = os.path.join(self.paths['workspace'], "images")
+        self.paths['base'] = os.path.join(self.paths['workspace'], "base")
+        self.paths['setup'] = os.path.join(self.paths['workspace'], "setup")
+        
         self.baseurl = config.get("general", "url") + "/dl"
         self.sessionurl = self.baseurl + "/" + session_id
 
+        """ libvirt configuration """
         self.virt_driver = config.get('template','virturl')
         self.virt_connection = libvirt.open( self.virt_driver )
-        self.mcast_interface = config.get('master','interface')
         (self.virt_type, data) = self.virt_driver.split(":", 1)
         
-        """ define the storage path for images """
-        self.images_path = os.path.join(self.workdir, "images")
-
         if self.virt_connection == None:
             self.log("could not connect to libvirt")
             sys.exit(-1)
@@ -72,7 +74,7 @@ class Setup(object):
             
         """ create the working directory """
         try:
-            os.makedirs(self.workdir)
+            os.makedirs(self.paths['workspace'])
         except OSError:
             pass
         
@@ -85,7 +87,7 @@ class Setup(object):
             self.download(self.sessionurl + "/" + f)
             
             """ create directory for content of the archive """
-            destdir = os.path.join(self.workdir, dirname)
+            destdir = os.path.join(self.paths['workspace'], dirname)
             
             try:
                 os.makedirs(destdir)
@@ -94,55 +96,58 @@ class Setup(object):
         
             if extension == "tar.gz":
                 """ extract the tar archive """
-                tar = tarfile.open(os.path.join(self.workdir, f))
+                tar = tarfile.open(os.path.join(self.paths['workspace'], f))
                 tar.extractall(destdir)
                 tar.close()
         
         self.log("done")
         
     def prepare_base(self):
-        base_path = os.path.join(self.workdir, "base")
-        setup_path = os.path.join(self.workdir, "setup")
-        
         self.log("read setup configuration: config.properties")
         baseconfig = ConfigParser.RawConfigParser()
-        baseconfig.read(base_path + "/config.properties")
+        baseconfig.read(self.paths['base'] + "/config.properties")
         
         """ download base image file """
         imagefile = baseconfig.get("image", "file")
         self.download(self.baseurl + "/" + imagefile)
         
         """ define path of the image file """
-        self.imagefile_path = os.path.join(self.workdir, imagefile)
+        self.paths['imagefile'] = os.path.join(self.paths['workspace'], imagefile)
 
         """ define path to virt template """        
-        self.virt_template = os.path.join(base_path, "node-template." + self.virt_type + ".xml")
+        self.virt_template = os.path.join(self.paths['base'], "node-template." + self.virt_type + ".xml")
         
         """ run preparation script """
-        self.sudo(self.shell + " " + base_path + "/prepare_image_base.sh " + self.imagefile_path + " " + base_path + " " + setup_path)
+        self.sudo(self.shell + " " + self.paths['base'] + "/prepare_image_base.sh " + self.paths['imagefile'] + " " + self.paths['base'] + " " + self.paths['setup'])
         
         """ strip .gz extension """
-        if self.imagefile_path.endswith(".gz"):
-            self.imagefile_path = os.path.splitext(self.imagefile_path)[0]
+        if self.paths['imagefile'].endswith(".gz"):
+            self.paths['imagefile'] = os.path.splitext(self.paths['imagefile'])[0]
+            
+        """ create path for image files """
+        os.makedirs(self.paths['images'])
         
     def add_node(self, nodeId):
         """ create a virtual node object """
-        v = control.VirtualNode(self, self.virt_connection, nodeId, self.workdir)
+        v = control.VirtualNode(self, self.virt_connection, nodeId)
         
         """ add the virtual node object """
         self.virt_nodes[nodeId] = v
         
         """ define / create the node object """
-        v.define(self.virt_type, self.imagefile_path, self.virt_template)
+        v.define(self.virt_type, self.paths['imagefile'], self.virt_template)
             
         """ debug """
         self.log("node '" + nodeId + "' defined")
         
     def remove_node(self, nodeId):
-        v = self.virt_nodes[nodeId]
-        v.undefine()
-        del self.virt_nodes[nodeId]
-        self.log("node '" + nodeId + "' undefined")
+        try:
+            v = self.virt_nodes[nodeId]
+            v.undefine()
+            del self.virt_nodes[nodeId]
+            self.log("node '" + nodeId + "' undefined")
+        except:
+            self.log("error while removing node '" + nodeId + "'")
         
     def download(self, url):
         """Copy the contents of a file from a given URL
@@ -151,7 +156,7 @@ class Setup(object):
         try:
             self.log("downloading " + url)
             webFile = urllib.urlopen(url)
-            localFile = open(self.workdir + "/" + url.split('/')[-1], 'w')
+            localFile = open(self.paths['workspace'] + "/" + url.split('/')[-1], 'w')
             localFile.write(webFile.read())
             webFile.close()
             localFile.close()
@@ -181,7 +186,7 @@ class Setup(object):
             oalist.append(socket.gethostbyname(socket.gethostname()))
             
             ''' read the monitor node list '''
-            monitor_list = open(os.path.join(self.workdir, "monitor-nodes.txt"), "r")
+            monitor_list = open(os.path.join(self.paths['workspace'], "monitor-nodes.txt"), "r")
             for maddress in monitor_list.readlines():
                 oalist.append(maddress.strip())
                 
@@ -225,8 +230,8 @@ class Setup(object):
             self.log("node '" + nodeId + "' undefined")
             
         """ delete the old stuff """
-        if os.path.exists(self.workdir):
-            shutil.rmtree(self.workdir)
+        if os.path.exists(self.paths['workspace']):
+            shutil.rmtree(self.paths['workspace'])
             
         self.scan_nodes = []
         self.virt_nodes = {}

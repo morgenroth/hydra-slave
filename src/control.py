@@ -15,12 +15,11 @@ class VirtualNode(object):
     '''
     classdocs
     '''
-    def __init__(self, setup, conn, name, storage_path):
+    def __init__(self, setup, conn, name):
         '''
         Constructor
         '''
         self.name = name
-        self.storage_path = storage_path
         self.dom = None
         self.conn = conn
         self.setup = setup
@@ -39,13 +38,13 @@ class VirtualNode(object):
         doc = minidom.parse(xml_template)
         
         ''' define the path for the image file '''
-        image = os.path.join(self.storage_path, "hydra-" + self.name + ".image")
+        image = os.path.join(self.setup.paths['images'], "hydra-" + self.name + ".image")
         
         ''' copy the image '''
         shutil.copy(image_template, image)
         
         self.setup.log("image preparation for " + self.name)
-        self.setup.sudo("/bin/bash " + self.storage_path + "/prepare_image_node.sh " + self.storage_path + " " + self.name + " " + image)
+        self.setup.sudo("/bin/bash " + self.setup.paths['base'] + "/prepare_image_node.sh " + image + " " + self.setup.paths['base'] + " " + self.setup.paths['setup'] + " " + self.name)
         
         ''' convert the raw image to virtualizers specific format '''
         if virt_type == "qemu":
