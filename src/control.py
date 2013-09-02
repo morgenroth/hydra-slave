@@ -189,7 +189,7 @@ class NodeControl(object):
         script.append("/usr/sbin/iptables -A INPUT -s 127.0.0.1/8 -j ACCEPT")
 
         """ allow multicast traffic """
-        script.append("/usr/sbin/iptables -A OUTPUT -m pkttype --pkt-type multicast -j ACCEPT")
+        #script.append("/usr/sbin/iptables -A OUTPUT -m pkttype --pkt-type multicast -j ACCEPT")
         script.append("/usr/sbin/iptables -A OUTPUT --protocol igmp -j ACCEPT")
         script.append("/usr/sbin/iptables -A OUTPUT --dst 224.0.0.0/4 -j ACCEPT")
         
