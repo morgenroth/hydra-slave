@@ -24,9 +24,10 @@ class VirtualNode(object):
         self.conn = conn
         self.setupobj = setup
         self.control = None
+        self.virt_name = ("hydra", self.setupobj.session_id, self.name)
         
         try:
-            self.dom = conn.lookupByName("hydra-" + self.name)
+            self.dom = conn.lookupByName("-".join(self.virt_name))
             self.setupobj.log("previous instance of " + self.name + " found.")
         except:
             self.setupobj.log("create a new instance of " + self.name + ".")
@@ -69,7 +70,7 @@ class VirtualNode(object):
             os.system("VBoxManage closemedium disk " + virt_image)
         
         ''' rename the node '''
-        doc.getElementsByTagName("name")[0].firstChild.nodeValue = "hydra-" + self.name
+        doc.getElementsByTagName("name")[0].firstChild.nodeValue = "-".join(self.virt_name)
         
         for disk in doc.getElementsByTagName("disk"):
             source = disk.getElementsByTagName("source")[0]
