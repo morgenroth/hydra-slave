@@ -4,7 +4,6 @@ Created on 18.01.2011
 @author: morgenro
 '''
 
-import struct
 import socket
 import shutil
 import os
@@ -28,9 +27,12 @@ class VirtualNode(object):
         
         try:
             self.dom = conn.lookupByName("-".join(self.virt_name))
-            self.setupobj.log("previous instance of " + self.name + " found.")
+            self.log("previous instance found")
         except:
-            self.setupobj.log("create a new instance of " + self.name + ".")
+            self.log("create a new instance")
+            
+    def log(self, message):
+        self.setupobj.log("*" + self.name + "* " + message)
         
     def define(self, virt_type, image_template, xml_template):
         if self.dom != None:
@@ -45,7 +47,7 @@ class VirtualNode(object):
         ''' copy the image '''
         shutil.copy(image_template, image)
         
-        self.setupobj.log("image preparation for " + self.name)
+        self.log("image preparation")
         
         """ run individual preparation script """
         params = [ "/bin/bash",
@@ -116,69 +118,116 @@ class NodeControl(object):
         
         if bindaddr != None:
             self.sock.bind((bindaddr, 0))
-
+            
+    def log(self, message):
+        self.setupobj.log("#" + self.name + "# " + message)
         
     def connect(self):
         try:
             self.sock.connect((self.address[0], self.port))
+            self.file = self.sock.makefile()
+                      
+            """ receive and decode node banner """
+            banner = self.file.readline().split(' ')
+            self.log("Node '" + banner[2] + "' connected - " + banner[0] + " version " + banner[1] + " (" + banner[3].strip() + ")")
             
-            """ TODO: receive and decode node banner """
+            if banner[2] != self.name:
+                self.log("[ERROR] Node name does not match: " + self.name + " != " + banner[2])
             
         except socket.error, msg:
-            self.setupobj.log("[ERROR] " + str(msg))
+            self.log("[ERROR] " + str(msg))
             raise msg
 
     def close(self):
         try:
+            self.file.close()
             self.sock.close()
         except socket.error, msg:
-            self.setupobj.log("[ERROR] " + str(msg))
+            self.log("[ERROR] " + str(msg))
     
     def position(self, lon, lat, alt = 0.0):
-        self.setupobj.log("new position for node " + self.name)
+        self.log("new position")
         try:
-            data = struct.pack("!Bfff", 2, lon, lat, alt)
-            self.sock.send(data)
+            data = " ".join(("position", "set", lon, lat, alt))
+            self.sock.send(data + "\n")
+            self.recv_response()
         except socket.error, msg:
-            self.setupobj.log("[ERROR] " + str(msg))
+            self.log("[ERROR] " + str(msg))
     
     def script(self, data):
-        self.setupobj.log("call script data on " + self.name)
+        self.log("calling script")
         try:
-            header = struct.pack("!BI", 1, len(data))
-            self.sock.send(header)
-            self.sock.send(data)
+            self.sock.send(" ".join(("system", "script")) + "\n")
+            (code, result) = self.recv_response(data)
+            
+            """ print script result """
+            self.log("script result [" + str(code) + "]")
+            
+            for line in result:
+                self.log(line)
+                
         except socket.error, msg:
-            self.setupobj.log("[ERROR] " + str(msg))
+            self.log("[ERROR] " + str(msg))
         
     def shutdown(self):
-        self.setupobj.log("halt node " + self.name)
+        self.log("halt")
         try:
-            data = struct.pack("!B", 3)
-            self.sock.send(data)
+            self.sock.send(" ".join(("system", "shutdown")) + "\n")
+            self.recv_response()
         except socket.error, msg:
-            self.setupobj.log("[ERROR] " + str(msg))
+            self.log("[ERROR] " + str(msg))
             
     def setup(self, open_addresses):
-        script = "/usr/sbin/iptables -F\n"
+        script = [ "/usr/sbin/iptables -F" ]
         
         for addr in open_addresses:
-            script = script + "/usr/sbin/iptables -A OUTPUT -d " + addr + "/32 -j ACCEPT\n" + \
-            "/usr/sbin/iptables -A INPUT -s " + addr + "/32 -j ACCEPT\n"
+            script.append("/usr/sbin/iptables -A OUTPUT -d " + addr + "/32 -j ACCEPT")
+            script.append("/usr/sbin/iptables -A INPUT -s " + addr + "/32 -j ACCEPT")
             
-        script = script + "/usr/sbin/iptables -A OUTPUT -d 255.255.255.255/32 -j ACCEPT\n" + \
-            "/usr/sbin/iptables -A OUTPUT -d 127.0.0.1/8 -j ACCEPT\n" + \
-            "/usr/sbin/iptables -A INPUT -s 127.0.0.1/8 -j ACCEPT\n" + \
-            "/usr/sbin/iptables -P OUTPUT DROP\n" + \
-            "/usr/sbin/iptables -P INPUT DROP\n"
-        self.script(script)
+        script.append("/usr/sbin/iptables -A OUTPUT -d 255.255.255.255/32 -j ACCEPT")
+        script.append("/usr/sbin/iptables -A OUTPUT -d 127.0.0.1/8 -j ACCEPT")
+        script.append("/usr/sbin/iptables -A INPUT -s 127.0.0.1/8 -j ACCEPT")
+        script.append("/usr/sbin/iptables -P OUTPUT DROP")
+        script.append("/usr/sbin/iptables -P INPUT DROP")
+        
+        self.script('\n'.join(script))
         
     def connectionUp(self, address):
-        script = "/usr/sbin/iptables -A OUTPUT -d " + address + "/32 -j ACCEPT\n" + \
-            "/usr/sbin/iptables -A INPUT -s " + address + "/32 -j ACCEPT\n"
-        self.script(script)
+        script = [ "/usr/sbin/iptables -A OUTPUT -d " + address + "/32 -j ACCEPT",
+                  "/usr/sbin/iptables -A INPUT -s " + address + "/32 -j ACCEPT" ]
+        self.script('\n'.join(script))
         
     def connectionDown(self, address):
-        script = "/usr/sbin/iptables -D OUTPUT -d " + address + "/32 -j ACCEPT\n" + \
-            "/usr/sbin/iptables -D INPUT -s " + address + "/32 -j ACCEPT\n"
-        self.script(script)
+        script = [ "/usr/sbin/iptables -D OUTPUT -d " + address + "/32 -j ACCEPT", 
+                  "/usr/sbin/iptables -D INPUT -s " + address + "/32 -j ACCEPT" ]
+        self.script('\n'.join(script))
+        
+    def recv_response(self, data = None):
+        response = []
+        (code, data) = self.file.readline().split(' ', 1)
+        
+        if int(code) == 201:
+            """ continue """
+            if data != None:
+                self.sock.send(data + "\n.\n")
+            else:
+                self.sock.send("\n.\n")
+
+            return self.recv_response()
+        
+        if int(code) == 212:
+            """ read listing """
+            while True:
+                line = self.file.readline().strip()
+                
+                """ abort on end marker """
+                if line == ".":
+                    break
+                
+                response.append(line)
+                
+        elif int(code) == 211:
+            """ read value """
+            response.append(self.file.readline().strip())
+        
+        return (int(code), response)
