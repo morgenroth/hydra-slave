@@ -190,7 +190,8 @@ class NodeControl(object):
                 self.log("script result [" + str(code) + "]")
                 for line in result:
                     self.log(line)
-                
+            
+            return result
         except socket.error, msg:
             self.log("[ERROR] " + str(msg))
         

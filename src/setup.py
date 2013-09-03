@@ -278,65 +278,49 @@ class Setup(object):
         
         """ mark this setup as not prepared """
         self.prepared = False
+        
+    def connectionUp(self, node, peer_address):
+        try:
+            n = self.nodes[node]
+            n.control.connectionUp(peer_address)
+        except:
+            self.log("ERROR: connectionUp " + node + " -> " + peer_address + " failed")
+        
+    def connectionDown(self, node, peer_address):
+        try:
+            n = self.nodes[node]
+            n.control.connectionDown(peer_address)
+        except:
+            self.log("ERROR: connectionDown " + node + " -> " + peer_address + " failed")
             
     def action(self, action):
         if not self.prepared:
             return
 
-        if action == "LIST":
-            ret = ""
-            for n in self.nodes:
-                ret = ret + n.name + " " + n.address[0] + "\n"
-            ret = ret + "EOL"
+        if action.startswith("list nodes"):
+            ret = []
+            for nodeId, v in self.nodes.iteritems():
+                ret.append(nodeId + " " + v.address[0])
             return ret
-        elif action.startswith("SCRIPT "):
-            # extract name and address
+        elif action.startswith("script "):
+            """ extract node name """
             (cmd, action) = action.split(" ", 1)
             (node_name, action) = action.split(" ", 1)
             
-            # get the node control object
-            n = self.getNode(node_name)
-            
-            # node not located here, break out
-            if n == None:
-                return
-            
-            # call the script on the node
-            n.script(action)
-            
-        elif action == "SETUP":
-            # extract name and address
-            (cmd, action) = action.split(" ", 1)
-            (node_name, action) = action.split(" ", 1)
-            (gateway, action) = action.split(" ", 1)
-            dns = action
-            
-            # get the node control object
-            n = self.getNode(node_name)
-            
-            # node not located here, break out
-            if n == None:
-                return
-            
-            # send the setup command
-            n.setup(gateway, dns)
-            
+            try:
+                """ call the script on the node """
+                return self.nodes[node_name].control.script(action)
+            except:
+                self.log("ERROR: node '" + node_name + "' not found")
         else:
             # extract name and address
             (cmd, action) = action.split(" ", 1)
             (node_name, action) = action.split(" ", 1)
             address = action
             
-            # get the node control object
-            n = self.getNode(node_name)
-            
-            # node not located here, break out
-            if n == None:
-                return
-            
-            if cmd == "UP":
+            if cmd == "up":
                 # send the connection up command
-                n.connectionUp(address)
-            elif cmd == "DOWN":
+                self.connectionUp(node_name, address)
+            elif cmd == "down":
                 # send the connection down command
-                n.connectionDown(address)
+                self.connectionDown(node_name, address)

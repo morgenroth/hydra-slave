@@ -55,8 +55,14 @@ class ControlPointServer(SocketServer.StreamRequestHandler):
                 self.wfile.write("200 REMOVED\n")
                 
             elif data.startswith("action"):
-                self.session.action(data)
-                self.wfile.write("200 ACTION-EXECUTED\n")
+                ret = self.session.action(data)
+                
+                if ret != None:
+                    self.wfile.write("212 ACTION-RESULT-LISTING\n")
+                    self.wfile.write("\n".join(ret))
+                    self.wfile.write("\n.\n")
+                else:
+                    self.wfile.write("200 ACTION-EXECUTED\n")
                 
             elif data.startswith("quit"):
                 try:

@@ -39,11 +39,9 @@ class Session(object):
         
     def action(self, data):
         try:
-            (action, data) = data.split("\n", 1)
-            self.setup.log("call action: " + action)
-            ret = self.setup.action(action)
-            if ret != None:
-                self.request.send(ret + "\n")
+            (action, data) = data.split(" ", 1)
+            self.setup.log("call action: " + data)
+            return self.setup.action(data)
         except ValueError:
             pass
         
