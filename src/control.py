@@ -182,24 +182,67 @@ class NodeControl(object):
         except socket.error, msg:
             self.log("[ERROR] " + str(msg))
             
-    def stats(self, items):
-        self.log("query stats (" + ", ".join(items) + ")")
+    def stats(self):
+        self.log("query node stats")
         
-        """ TODO: collect all known stats and return an summary array """
-        pass
+        """ collect all known stats and return an summary array """
+        stats_result = {}
+        
+        try:
+            """ stats interfaces """
+            result = self.query(("stats", "interfaces"))
+            for line in result:
+                if len(line.strip()) > 0:
+                    (key, data) = line.split(" ", 1)
+                    for entry in data.split(" "):
+                        (vkey, value) = entry.split(":", 1)
+                        stats_result["iface:" + key + ":" + vkey] = value.strip()
+
+            """ dtnd stats info """
+            result = self.query(("dtnd", "stats", "info"))
+            for line in result:
+                if len(line.strip()) > 0:
+                    (key, data) = line.split(":", 1)
+                    stats_result["dtnd:info:" + key] = data.strip()
+                    
+            """ dtnd stats bundles """
+            result = self.query(("dtnd", "stats", "bundles"))
+            for line in result:
+                if len(line.strip()) > 0:
+                    (key, data) = line.split(":", 1)
+                    stats_result["dtnd:bundles:" + key] = data.strip()
+            
+            """ clock get all """
+            result = self.query(("clock", "get", "all"))
+            for line in result:
+                if len(line.strip()) > 0:
+                    (key, data) = line.split(":", 1)
+                    stats_result["clock:" + key] = data.strip()
+
+        except socket.error, msg:
+            self.log("[ERROR] " + str(msg))
+            
+        return stats_result
     
     def dtnd(self, action):
         self.log("collect DTN daemon data '" + action + "'")
+        return self.query(("dtnd", action))
+    
+    def query(self, query):
         try:
+            """ debug: print query """
+            if self.setupobj.debug:
+                self.log("query '" + " ".join(query) + "'")
+            
             """ send query """
-            self.sock.send(" ".join(("dtnd", action)) + "\n")
+            self.sock.send(" ".join(query) + "\n")
             
             """ wait for the response """
             (code, result) = self.recv_response()
             
-            """ debug: print script result """
+            """ debug: print query result """
             if self.setupobj.debug:
-                self.log("script result [" + str(code) + "]")
+                self.log("query result [" + str(code) + "]")
                 for line in result:
                     self.log(line)
             

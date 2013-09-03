@@ -4,6 +4,7 @@ Created on 21.01.2011
 @author: morgenro
 '''
 
+import json
 import os
 import shutil
 import urllib
@@ -325,11 +326,11 @@ class Setup(object):
                 self.log("ERROR: node '" + node_name + "' not found")
                 
         elif action.startswith("stats "):
-            (cmd, node_name, action) = action.split(" ", 2)
+            (cmd, node_name) = action.split(" ", 1)
 
             try:
-                n = self.nodes[node_name]
-                return n.control.stats(action.strip().split(" "))
+                n = self.nodes[node_name.strip()]
+                return [ json.dumps(n.control.stats()) ]
             except KeyError:
                 self.log("ERROR: node '" + node_name + "' not found")
         elif action.startswith("dtnd "):
