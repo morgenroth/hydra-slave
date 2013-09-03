@@ -9,6 +9,22 @@ import shutil
 import os
 from xml.dom import minidom
 
+class PhysicalNode(object):
+    def __init__(self, setup, conn, name, address):
+        '''
+        Constructor
+        '''
+        self.name = name
+        self.address = address
+        self.conn = conn
+        self.setupobj = setup
+        self.control = None
+        
+        self.log("physical node defined")
+        
+    def log(self, message):
+        self.setupobj.log("*" + self.name + "* " + message)
+
 class VirtualNode(object):
     '''
     classdocs
