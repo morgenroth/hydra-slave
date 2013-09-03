@@ -22,6 +22,7 @@ class Setup(object):
     """
     nodes = {}
     paths = {}
+    debug = False
 
     def __init__(self, session_id, config):
         '''
@@ -31,6 +32,7 @@ class Setup(object):
         
         self.sudomode = config.get('general', 'sudomode')
         self.shell = config.get('general', 'shell')
+        self.debug = (config.get('general', 'debug') == "yes")
         
         """ IP address of the multicast interface """
         self.mcast_interface = config.get('master','interface')

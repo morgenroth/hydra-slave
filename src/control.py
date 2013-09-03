@@ -158,13 +158,19 @@ class NodeControl(object):
         self.log("calling script")
         try:
             self.sock.send(" ".join(("system", "script")) + "\n")
+            
+            """ debug: print script """
+            if self.setupobj.debug:
+                for line in data.split('\n'):
+                    self.log(line.strip())
+            
             (code, result) = self.recv_response(data)
             
-            """ print script result """
-            self.log("script result [" + str(code) + "]")
-            
-            for line in result:
-                self.log(line)
+            """ debug: print script result """
+            if self.setupobj.debug:
+                self.log("script result [" + str(code) + "]")
+                for line in result:
+                    self.log(line)
                 
         except socket.error, msg:
             self.log("[ERROR] " + str(msg))
