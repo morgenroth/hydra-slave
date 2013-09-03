@@ -238,6 +238,13 @@ class NodeControl(object):
                 if len(line.strip()) > 0:
                     (key, data) = line.split(":", 1)
                     stats_result["clock:" + key] = data.strip()
+                    
+            """ get position """
+            result = self.query(("position", "get"))
+            for line in result:
+                if len(line.strip()) > 0:
+                    (key, data) = line.split(":", 1)
+                    stats_result["position:" + key] = data.strip()
 
         except socket.error, msg:
             self.log("[ERROR] " + str(msg))
