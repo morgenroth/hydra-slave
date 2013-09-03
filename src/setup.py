@@ -23,6 +23,7 @@ class Setup(object):
     nodes = {}
     paths = {}
     debug = False
+    prepared = False
 
     def __init__(self, session_id, config):
         '''
@@ -139,7 +140,13 @@ class Setup(object):
         """ create path for image files """
         os.makedirs(self.paths['images'])
         
+        """ mark this setup as prepared """
+        self.prepared = True
+        
     def add_node(self, nodeId, address):
+        if not self.prepared:
+            return
+        
         """ create a virtual node object """
         v = control.VirtualNode(self, self.virt_connection, nodeId, address)
         
@@ -153,6 +160,9 @@ class Setup(object):
         self.log("node '" + nodeId + "' defined")
         
     def remove_node(self, nodeId):
+        if not self.prepared:
+            return
+
         try:
             v = self.nodes[nodeId]
             v.undefine()
@@ -176,6 +186,9 @@ class Setup(object):
             self.log("could not get url " + url)
     
     def startup(self):
+        if not self.prepared:
+            return
+
         """ switch on all nodes """
         for name, v in self.nodes.iteritems():
             v.create()
@@ -236,6 +249,9 @@ class Setup(object):
                 v.control = control.NodeControl(self, v.name, address, bindaddr = self.mcast_interface)
     
     def shutdown(self):
+        if not self.prepared:
+            return
+
         for nodeId, v in self.nodes.iteritems():
             """ close control connection """
             if v.control != None:
@@ -257,8 +273,14 @@ class Setup(object):
             shutil.rmtree(self.paths['workspace'])
             
         self.nodes = {}
+        
+        """ mark this setup as not prepared """
+        self.prepared = False
             
     def action(self, action):
+        if not self.prepared:
+            return
+
         if action == "LIST":
             ret = ""
             for n in self.nodes:
