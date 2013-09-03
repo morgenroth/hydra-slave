@@ -32,7 +32,11 @@ class Setup(object):
         self.sudomode = config.get('general', 'sudomode')
         self.shell = config.get('general', 'shell')
         
+        """ IP address of the multicast interface """
         self.mcast_interface = config.get('master','interface')
+        
+        """ ntp server used to synchronize the nodes or measure the clock offset """
+        self.ntp_server = config.get('ntp', 'server')
         
         """ define basic paths """
         self.paths['workspace'] = os.path.join("hydra-setup", session_id)
@@ -121,7 +125,8 @@ class Setup(object):
                   self.paths['base'] + "/prepare_image_base.sh",
                   self.paths['imagefile'],
                   self.paths['base'],
-                  self.paths['setup'] ]
+                  self.paths['setup'],
+                  self.ntp_server ]
                   
         self.sudo(" ".join(params))
         
