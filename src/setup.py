@@ -266,6 +266,8 @@ class Setup(object):
     def cleanup(self):
         for nodeId, v in self.nodes.iteritems():
             v.undefine()
+            if v.imagefile != None:
+                os.remove(v.imagefile)
             self.log("node '" + nodeId + "' undefined")
             
         """ delete the old stuff """

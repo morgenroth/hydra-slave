@@ -40,6 +40,7 @@ class VirtualNode(object):
         self.setupobj = setup
         self.control = None
         self.virt_name = ("hydra", self.setupobj.session_id, self.name)
+        self.imagefile = None
         
         try:
             self.dom = conn.lookupByName("-".join(self.virt_name))
@@ -58,17 +59,17 @@ class VirtualNode(object):
         doc = minidom.parse(xml_template)
         
         ''' define the path for the image file '''
-        image = os.path.join(self.setupobj.paths['images'], "hydra-" + self.name + ".image")
+        self.imagefile = os.path.join(self.setupobj.paths['images'], "hydra-" + self.name + ".image")
         
         ''' copy the image '''
-        shutil.copy(image_template, image)
+        shutil.copy(image_template, self.imagefile)
         
         self.log("image preparation")
         
         """ run individual preparation script """
         params = [ "/bin/bash",
                   self.setupobj.paths['base'] + "/prepare_image_node.sh",
-                  image,
+                  self.imagefile,
                   self.setupobj.paths['base'],
                   self.setupobj.paths['setup'],
                   self.name,
@@ -78,14 +79,16 @@ class VirtualNode(object):
         self.setupobj.sudo(" ".join(params))
         
         ''' convert the raw image to virtualizers specific format '''
-        if virt_type == "qemu":
-            virt_image = image
-        elif virt_type == "vbox":
+        if virt_type == "vbox":
             virt_image = os.path.join(self.storage_path, "hydra-" + self.name + ".vdi")
-            os.system("VBoxManage convertfromraw " + image + " " + virt_image + " --format VDI --variant Standard")
+            os.system("VBoxManage convertfromraw " + self.imagefile + " " + virt_image + " --format VDI --variant Standard")
             
-            # close the link to the old image
-            os.system("VBoxManage closemedium disk " + virt_image)
+            """ remove old image file """
+            os.remove(self.imagefile)
+            self.imagefile = virt_image
+            
+            """ close the link to the old image """
+            os.system("VBoxManage closemedium disk " + self.imagefile)
         
         ''' rename the node '''
         doc.getElementsByTagName("name")[0].firstChild.nodeValue = "-".join(self.virt_name)
@@ -93,7 +96,7 @@ class VirtualNode(object):
         for disk in doc.getElementsByTagName("disk"):
             source = disk.getElementsByTagName("source")[0]
             if source.hasAttribute("file"):
-                source.setAttribute("file", os.path.abspath(virt_image))
+                source.setAttribute("file", os.path.abspath(self.imagefile))
         
         self.dom = self.conn.defineXML(doc.toxml())
         
