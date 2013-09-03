@@ -181,6 +181,31 @@ class NodeControl(object):
             self.recv_response()
         except socket.error, msg:
             self.log("[ERROR] " + str(msg))
+            
+    def stats(self, items):
+        self.log("query stats (" + ", ".join(items) + ")")
+        
+        """ TODO: collect all known stats and return an summary array """
+        pass
+    
+    def dtnd(self, action):
+        self.log("collect DTN daemon data '" + action + "'")
+        try:
+            """ send query """
+            self.sock.send(" ".join(("dtnd", action)) + "\n")
+            
+            """ wait for the response """
+            (code, result) = self.recv_response()
+            
+            """ debug: print script result """
+            if self.setupobj.debug:
+                self.log("script result [" + str(code) + "]")
+                for line in result:
+                    self.log(line)
+            
+            return result
+        except socket.error, msg:
+            self.log("[ERROR] " + str(msg))
     
     def script(self, data):
         self.log("calling script")

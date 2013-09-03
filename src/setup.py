@@ -323,6 +323,23 @@ class Setup(object):
                     n.control.position(float(x), float(y), float(z))
             except KeyError:
                 self.log("ERROR: node '" + node_name + "' not found")
+                
+        elif action.startswith("stats "):
+            (cmd, node_name, action) = action.split(" ", 2)
+
+            try:
+                n = self.nodes[node_name]
+                return n.control.stats(action.strip().split(" "))
+            except KeyError:
+                self.log("ERROR: node '" + node_name + "' not found")
+        elif action.startswith("dtnd "):
+            (cmd, node_name, action) = action.split(" ", 2)
+
+            try:
+                n = self.nodes[node_name]
+                return n.control.dtnd(action.strip())
+            except KeyError:
+                self.log("ERROR: node '" + node_name + "' not found")
         else:
             # extract name and address
             (cmd, node_name, address) = action.split(" ", 2)
