@@ -133,6 +133,7 @@ class NodeControl(object):
         self.address = address
         self.port = port
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.current_position = None
         #self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         
         if bindaddr != None:
@@ -164,10 +165,18 @@ class NodeControl(object):
         except socket.error, msg:
             self.log("[ERROR] " + str(msg))
     
-    def position(self, lon, lat, alt = 0.0):
-        self.log("new position")
+    def position(self, x, y, z = 0.0):
+        self.log("new position x:" + str(x) + " y:" + str(y) + " z:" + str(z))
         try:
-            data = " ".join(("position", "set", lon, lat, alt))
+            if self.current_position == None:
+                data = " ".join(("position", "enable"))
+                self.sock.send(data + "\n")
+                self.recv_response()
+                
+            """ store position locally """
+            self.current_position = (x, y, z)
+                        
+            data = " ".join(("position", "set", str(x), str(y), str(z)))
             self.sock.send(data + "\n")
             self.recv_response()
         except socket.error, msg:

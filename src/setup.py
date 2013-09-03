@@ -283,15 +283,15 @@ class Setup(object):
         try:
             n = self.nodes[node]
             n.control.connectionUp(peer_address)
-        except:
-            self.log("ERROR: connectionUp " + node + " -> " + peer_address + " failed")
+        except KeyError:
+            self.log("ERROR: node '" + node + "' not found")
         
     def connectionDown(self, node, peer_address):
         try:
             n = self.nodes[node]
             n.control.connectionDown(peer_address)
-        except:
-            self.log("ERROR: connectionDown " + node + " -> " + peer_address + " failed")
+        except KeyError:
+            self.log("ERROR: node '" + node + "' not found")
             
     def action(self, action):
         if not self.prepared:
@@ -304,19 +304,28 @@ class Setup(object):
             return ret
         elif action.startswith("script "):
             """ extract node name """
-            (cmd, action) = action.split(" ", 1)
-            (node_name, action) = action.split(" ", 1)
+            (cmd, node_name, action) = action.split(" ", 2)
             
             try:
                 """ call the script on the node """
                 return self.nodes[node_name].control.script(action)
-            except:
+            except KeyError:
+                self.log("ERROR: node '" + node_name + "' not found")
+        elif action.startswith("position "):
+            (cmd, node_name, x, y, z) = action.split(" ", 4)
+            
+            try:
+                n = self.nodes[node_name]
+                
+                if float(z) == 0.0:
+                    n.control.position(float(x), float(y))
+                else:
+                    n.control.position(float(x), float(y), float(z))
+            except KeyError:
                 self.log("ERROR: node '" + node_name + "' not found")
         else:
             # extract name and address
-            (cmd, action) = action.split(" ", 1)
-            (node_name, action) = action.split(" ", 1)
-            address = action
+            (cmd, node_name, address) = action.split(" ", 2)
             
             if cmd == "up":
                 # send the connection up command
