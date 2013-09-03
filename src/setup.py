@@ -312,6 +312,33 @@ class Setup(object):
                 return self.nodes[node_name].control.script(action)
             except KeyError:
                 self.log("ERROR: node '" + node_name + "' not found")
+        elif action.startswith("clock "):
+            (cmd, node_name, offset, frequency, sec, usec) = action.strip().split(" ", 5)
+            
+            if offset == "*":
+                offset = None
+            else:
+                offset = float(offset)
+                
+            if frequency == "*":
+                frequency = None
+            else:
+                frequency = int(frequency)
+                
+            if sec == "*":
+                sec = None
+            else:
+                sec = int(sec)
+                
+            if usec == "*":
+                usec = None
+            else:
+                usec = int(usec)
+                
+            try:
+                self.nodes[node_name].control.clock(offset, frequency, sec, usec)
+            except KeyError:
+                self.log("ERROR: node '" + node_name + "' not found")
         elif action.startswith("position "):
             (cmd, node_name, x, y, z) = action.split(" ", 4)
             
@@ -324,7 +351,6 @@ class Setup(object):
                     n.control.position(float(x), float(y), float(z))
             except KeyError:
                 self.log("ERROR: node '" + node_name + "' not found")
-                
         elif action.startswith("stats "):
             (cmd, node_name) = action.split(" ", 1)
 

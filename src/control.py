@@ -182,6 +182,26 @@ class NodeControl(object):
         except socket.error, msg:
             self.log("[ERROR] " + str(msg))
             
+    def clock(self, offset, frequency, timeofday_sec, timeofday_usec):
+        # offset <useconds>
+        if offset != None:
+            data = " ".join(("clock", "set", "offset", str(offset)))
+            self.sock.send(data + "\n")
+            self.recv_response()
+        
+        # frequency <int>
+        if frequency != None:
+            data = " ".join(("clock", "set", "frequency", str(frequency)))
+            self.sock.send(data + "\n")
+            self.recv_response()
+
+        # timeofday <seconds> <useconds>
+        if timeofday_sec != None:
+            if timeofday_usec != None:
+                data = " ".join(("clock", "set", "timeofday", str(timeofday_sec), str(timeofday_usec)))
+                self.sock.send(data + "\n")
+                self.recv_response()
+            
     def stats(self):
         self.log("query node stats")
         
