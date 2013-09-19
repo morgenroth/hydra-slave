@@ -37,7 +37,8 @@ class Setup(object):
         self.debug = (config.get('general', 'debug') == "yes")
         
         """ IP address of the multicast interface """
-        self.mcast_interface = config.get('master','interface')
+        self.mcast_interface = config.get('discovery','interface')
+        self.mcast_address = (config.get('discovery','address'), config.getint('discovery','port'))
         
         """ ntp server used to synchronize the nodes or measure the clock offset """
         self.ntp_server = config.get('ntp', 'server')
@@ -48,7 +49,7 @@ class Setup(object):
         self.paths['base'] = os.path.join(self.paths['workspace'], "base")
         self.paths['setup'] = os.path.join(self.paths['workspace'], "setup")
         
-        self.baseurl = config.get("general", "url") + "/dl"
+        self.baseurl = config.get("master", "url") + "/dl"
         self.sessionurl = self.baseurl + "/" + session_id
 
         """ libvirt configuration """
@@ -226,7 +227,7 @@ class Setup(object):
         
         while True:
             ''' scan for neighboring nodes '''
-            ds.scan(("225.16.16.1", 3232), 2, None, self)
+            ds.scan(self.mcast_address, 2, None, self)
         
             """ count the number of discovered nodes """
             active_node_count = 0

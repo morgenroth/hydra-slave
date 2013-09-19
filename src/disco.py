@@ -9,57 +9,6 @@ import socket
 import select
 import struct
 
-class DiscoveryService(threading.Thread):
-    '''
-    classdocs
-    '''
-    
-    def __init__(self, addr, listen = "0.0.0.0"):
-        '''
-        Constructor
-        '''
-        threading.Thread.__init__(self)
-        self.listen = listen
-        self.daemon = True
-        
-        # Create the socket
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
-        # Set some options to make it multicast-friendly
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        try:
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        except AttributeError:
-            pass # Some systems don't support SO_REUSEPORT
-        s.setsockopt(socket.SOL_IP, socket.IP_MULTICAST_TTL, 20)
-        s.setsockopt(socket.SOL_IP, socket.IP_MULTICAST_LOOP, 1)
-
-        # Bind to the port
-        s.bind(('', addr[1]))
-
-        # Set some more multicast options
-        s.setsockopt(socket.SOL_IP, socket.IP_MULTICAST_IF, socket.inet_aton(self.listen))
-        s.setsockopt(socket.SOL_IP, socket.IP_ADD_MEMBERSHIP, socket.inet_aton(addr[0]) + socket.inet_aton(self.listen))
-
-        self.sock = s
-        self.addr = addr
-        self.running = True
-
-        
-    def run(self):
-        while self.running:
-            data, sender_addr = self.sock.recvfrom(1500)
-            if data[1:6] == "HELLO":
-                hostname = socket.gethostname()
-                header = struct.pack("!BI", 1, len(hostname))
-                self.sock.sendto(header + hostname, sender_addr)
-            
-    def shutdown(self):
-        self.running = False
-        self.sock.setsockopt(socket.SOL_IP, socket.IP_DROP_MEMBERSHIP, socket.inet_aton(self.addr[0]) + socket.inet_aton(self.listen))
-        self.sock.close()
-
-
 class DiscoverySocket(object):
     '''
     classdocs
