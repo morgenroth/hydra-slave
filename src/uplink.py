@@ -29,7 +29,10 @@ class UplinkHandler:
         self.wfile.flush()
         
     def readline(self):
-        return self.rfile.readline()
+        if self.rfile:
+            return self.rfile.readline()
+        else:
+            return None
     
     def handle(self, peer_address):
         print("master connection opened (" + peer_address[0] + ":" + str(peer_address[1]) + ")")
@@ -37,11 +40,12 @@ class UplinkHandler:
         self.write("### HYDRA SLAVE ###\n")
         self.write("Identifier: " + socket.gethostname() + "\n")
         
-        data = self.readline().strip()
+        data = self.readline()
         
         while data:
+            data = data.strip()
             self.process(data)
-            data = self.readline().strip()
+            data = self.readline()
             
         print("master connection closed (" + peer_address[0] + ":" + str(peer_address[1]) + ")")
             
@@ -87,12 +91,19 @@ class UplinkHandler:
             elif data.startswith("quit"):
                 try:
                     self.write("200 BYE\n")
+                    self.wfile.close()
+                    self.wfile = None
+                    self.rfile.close()
+                    self.rfile = None
                 except:
                     pass
                 
             elif data.startswith("run"):
-                self.session.run(data)
-                self.write("200 STARTED\n")
+                try:
+                    self.session.run(data)
+                    self.write("200 STARTED\n")
+                except setup.TimeoutError:
+                    self.write("301 TIMEOUT\n")
                 
             elif data.startswith("stop"):
                 self.session.stop(data)
@@ -135,6 +146,9 @@ class UplinkConnection:
                 
                 """ handle connection data """
                 uplink.handle(address)
+                
+                """ close the socket """
+                self.s.close()
             except socket.error, e:
                 print("Error: " + str(e))
             
