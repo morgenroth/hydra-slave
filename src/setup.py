@@ -17,6 +17,9 @@ import control
 import tarfile
 import ConfigParser
 
+class TimeoutError(Exception):
+    pass
+
 class Setup(object):
     """
     This class manages the node setup of a specific session.
@@ -224,8 +227,8 @@ class Setup(object):
     def scan_for_nodes(self):
         ''' create a discovery socket '''
         ds = DiscoverySocket((self.mcast_interface, 0))
-        
-        while True:
+
+        for i in range(0, 5):
             ''' scan for neighboring nodes '''
             ds.scan(self.mcast_address, 2, None, self)
         
@@ -238,10 +241,12 @@ class Setup(object):
             self.log(str(active_node_count) + " nodes discovered")
             
             if active_node_count == len(self.nodes):
-                break
+                return
             
             """ wait some time until the next scan is started """
             time.sleep(10)
+            
+        raise TimeoutError
             
     def callback_discovered(self, name, address):
         if name in self.nodes:
