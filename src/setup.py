@@ -20,21 +20,42 @@ import ConfigParser
 class TimeoutError(Exception):
     pass
 
+class State():
+    INITIAL = 0
+    PREPARED = 1
+    RUNNING = 2
+    STOPPED = 3
+
 class Setup(object):
     """
     This class manages the node setup of a specific session.
     """
+    
+    """ all node objects are stored here """
     nodes = {}
+    
+    """ all custom paths are stored here """
     paths = {}
+    
+    """ determine if debugging is on """
     debug = False
-    prepared = False
+    
+    """ setup state """
+    state = State.INITIAL
+    
+    """ link to the session holding this setup """
+    session = None
 
-    def __init__(self, session_id, config):
+    def __init__(self, session):
         '''
         Constructor
         '''
-        self.session_id = session_id
+        self.session = session
         
+        """ read the global configuration """
+        self.read_configuration(self.session.config)
+        
+    def read_configuration(self, config):
         self.sudomode = config.get('general', 'sudomode')
         self.shell = config.get('general', 'shell')
         self.debug = (config.get('general', 'debug') == "yes")
@@ -47,13 +68,13 @@ class Setup(object):
         self.ntp_server = config.get('ntp', 'server')
         
         """ define basic paths """
-        self.paths['workspace'] = os.path.join("hydra-setup", session_id)
+        self.paths['workspace'] = os.path.join("hydra-setup", str(self.session.session_id))
         self.paths['images'] = os.path.join(self.paths['workspace'], "images")
         self.paths['base'] = os.path.join(self.paths['workspace'], "base")
-        self.paths['setup'] = os.path.join(self.paths['workspace'], "setup")
         
-        self.baseurl = config.get("master", "url") + "/dl"
-        self.sessionurl = self.baseurl + "/" + session_id
+        """ define hydra download path """
+        self.baseurl = self.session.hydra_url + "/dl"
+        self.sessionurl = self.baseurl + "/" + self.session.session_id
 
         """ libvirt configuration """
         self.virt_driver = config.get('template','virturl')
@@ -67,7 +88,7 @@ class Setup(object):
         self.log("New session created")
             
     def log(self, message):
-        print("[" + self.session_id + "] " + message)
+        print("[" + self.session.session_id + "] " + message)
         
     def sudo(self, command):
         self.log("(sudo) " + str(command))
@@ -89,7 +110,7 @@ class Setup(object):
         except OSError:
             pass
         
-        files = [ "base.tar.gz", "setup.tar.gz" ]
+        files = [ "base.tar.gz" ]
         
         for f in files:
             (dirname, extension) = f.split(".", 1)
@@ -133,7 +154,6 @@ class Setup(object):
                   self.paths['base'] + "/prepare_image_base.sh",
                   self.paths['imagefile'],
                   self.paths['base'],
-                  self.paths['setup'],
                   self.ntp_server ]
                   
         self.sudo(" ".join(params))
@@ -146,14 +166,14 @@ class Setup(object):
         os.makedirs(self.paths['images'])
         
         """ mark this setup as prepared """
-        self.prepared = True
+        self.state = State.PREPARED
         
-    def add_node(self, nodeId, address):
-        if not self.prepared:
+    def add_node(self, nodeId, nodeName, address):
+        if self.state != State.PREPARED:
             return
         
         """ create a virtual node object """
-        v = control.VirtualNode(self, self.virt_connection, nodeId, address)
+        v = control.VirtualNode(self, self.virt_connection, "n" + str(nodeId), address)
         
         """ add the virtual node object """
         self.nodes[nodeId] = v
@@ -162,19 +182,19 @@ class Setup(object):
         v.define(self.virt_type, self.paths['imagefile'], self.virt_template)
             
         """ debug """
-        self.log("node '" + nodeId + "' defined")
+        self.log("node " + str(nodeId) + " '" + str(nodeName) + "' defined")
         
     def remove_node(self, nodeId):
-        if not self.prepared:
+        if self.state != State.STOPPED and self.state != State.PREPARED:
             return
 
         try:
             v = self.nodes[nodeId]
             v.undefine()
             del self.nodes[nodeId]
-            self.log("node '" + nodeId + "' undefined")
+            self.log("node " + str(nodeId) + " undefined")
         except:
-            self.log("error while removing node '" + nodeId + "'")
+            self.log("error while removing node '" + str(nodeId) + "'")
         
     def download(self, url):
         """Copy the contents of a file from a given URL
@@ -191,38 +211,47 @@ class Setup(object):
             self.log("could not get url " + url)
     
     def startup(self):
-        if not self.prepared:
+        if self.state != State.PREPARED:
             return
 
         """ switch on all nodes """
         for name, v in self.nodes.iteritems():
             v.create()
-            
-        """ scan for nodes """
-        self.scan_for_nodes()
         
-        """ connect to all nodes and call setup """
-        for name, v in self.nodes.iteritems():
-            v.control.connect()
+        try:
+            """ scan for nodes """
+            self.scan_for_nodes()
             
-            ''' list of open addresses for the node '''
-            oalist = []
-            
-            ''' if the multicast interface is defined use it as open address '''
-            if self.mcast_interface != "":
-                oalist.append(self.mcast_interface)
+            """ connect to all nodes and call setup """
+            for name, v in self.nodes.iteritems():
+                v.control.connect()
                 
-            ''' open the connection to the default address of the slave '''
-            oalist.append(socket.gethostbyname(socket.gethostname()))
-            
-            ''' read the monitor node list '''
-            monitor_list = open(os.path.join(self.paths['base'], "monitor-nodes.txt"), "r")
-            for maddress in monitor_list.readlines():
-                if len(maddress.strip()) > 0:
-                    oalist.append(maddress.strip())
+                ''' list of open addresses for the node '''
+                oalist = []
                 
-            ''' call the setup procedure '''
-            v.control.setup(oalist)
+                ''' if the multicast interface is defined use it as open address '''
+                if self.mcast_interface != "":
+                    oalist.append(self.mcast_interface)
+                    
+                ''' open the connection to the default address of the slave '''
+                oalist.append(socket.gethostbyname(socket.gethostname()))
+                
+                ''' read the monitor node list '''
+                monitor_list = open(os.path.join(self.paths['base'], "monitor-nodes.txt"), "r")
+                for maddress in monitor_list.readlines():
+                    if len(maddress.strip()) > 0:
+                        oalist.append(maddress.strip())
+                    
+                ''' call the setup procedure '''
+                v.control.setup(oalist)
+                
+            """ mark this setup as running """
+            self.state = State.RUNNING
+            
+        except TimeoutError:
+            self.shutdown()
+            raise
+            
         
     def scan_for_nodes(self):
         ''' create a discovery socket '''
@@ -249,14 +278,15 @@ class Setup(object):
         raise TimeoutError
             
     def callback_discovered(self, name, address):
-        if name in self.nodes:
-            v = self.nodes[name]
+        nodeId = name[1:]
+        if nodeId in self.nodes:
+            v = self.nodes[nodeId]
             if v.control == None:
                 self.log("New node '" + name + "' (" + str(address[0]) + ":" + str(address[1]) +") discovered")
                 v.control = control.NodeControl(self, v.name, address, bindaddr = self.mcast_interface)
     
     def shutdown(self):
-        if not self.prepared:
+        if self.state != State.RUNNING and self.state != State.PREPARED:
             return
 
         for nodeId, v in self.nodes.iteritems():
@@ -269,8 +299,14 @@ class Setup(object):
             v.destroy()
             
             self.log("node '" + nodeId + "' destroyed")
+            
+        """ mark this setup as stopped """
+        self.state = State.STOPPED
     
     def cleanup(self):
+        if self.state != State.STOPPED and self.state != State.INITIAL:
+            return
+        
         for nodeId, v in self.nodes.iteritems():
             v.undefine()
             if v.imagefile != None:
@@ -284,9 +320,12 @@ class Setup(object):
         self.nodes = {}
         
         """ mark this setup as not prepared """
-        self.prepared = False
+        self.state = State.INITIAL
         
     def connectionUp(self, node, peer_address):
+        if self.state != State.RUNNING:
+            return
+        
         try:
             n = self.nodes[node]
             n.control.connectionUp(peer_address)
@@ -294,6 +333,9 @@ class Setup(object):
             self.log("ERROR: node '" + node + "' not found")
         
     def connectionDown(self, node, peer_address):
+        if self.state != State.RUNNING:
+            return
+        
         try:
             n = self.nodes[node]
             n.control.connectionDown(peer_address)
@@ -301,7 +343,7 @@ class Setup(object):
             self.log("ERROR: node '" + node + "' not found")
             
     def action(self, action):
-        if not self.prepared:
+        if self.state != State.RUNNING:
             return
 
         if action.startswith("list nodes"):

@@ -1,124 +1,325 @@
 '''
 Created on 19.01.2011
 
-@author: morgenro
+@author: Johannes Morgenroth <morgenroth@ibr.cs.tu-bs.de>
+
+### protocol commands ###
+
+# create a session
+session create <session-id> <hydra-url>
+
+# destroy a session (clean-up)
+session destroy <session-id>
+
+# prepare session
+session prepare <session-id>
+
+# start-up all nodes of a session
+session run <session-id>
+
+# stop all nodes of a session
+session stop <session-id>
+
+# create a node for a session
+# e.g. <ip-address> = 1.2.3.4/255.255.0.0
+node create <session-id> <node-id> <ip-address> <node-name>
+
+# destroy a node of a session
+node destroy <session-id> <node-id>
+
+# action ...
+action <session-id> <node-id> <action-to-execute>
+
+# close connection
+quit
+
 '''
 
 import SocketServer
 import socket
 from session import Session
-import setup
+from setup import TimeoutError
 import ConfigParser
 import time
 
 """ global config object """
-config = None
+_config = None
 
-""" global setup pool """
-setups = {}
+""" global session pool """
+_sessions = {}
+
+class SessionNotFoundError(Exception):
+    def __init__(self, value):
+        self.value = value
+    def __str__(self):
+        return repr(self.value)
 
 class UplinkHandler:
-    
-    setup = None
-    session = None
+    """ file to send data to the master """
     wfile = None
+    
+    """ file to receive data from the master """
     rfile = None
     
-    def write(self, data):
-        self.wfile.write(data)
+    """ write data to the master """
+    def writeline(self, data):
+        self.wfile.write(data + "\n")
         self.wfile.flush()
-        
+    
+    """ read one line from the master """
     def readline(self):
         if self.rfile:
             return self.rfile.readline()
         else:
             return None
     
+    """ this method handles the chat between the master and the slave """
     def handle(self, peer_address):
         print("master connection opened (" + peer_address[0] + ":" + str(peer_address[1]) + ")")
         
-        self.write("### HYDRA SLAVE ###\n")
-        self.write("Identifier: " + socket.gethostname() + "\n")
+        """ handshake parameters """
+        slavename = socket.gethostname()
+        owner = None
+        capacity = None
         
+        """ get the slave name """
+        if _config.has_option("general", "name"):
+            slavename = _config.get("general", "name")
+        
+        """ get owner if set """
+        if _config.has_option("general", "owner"):
+            owner = _config.get("general", "owner")
+        
+        """ get capacity if set """
+        if _config.has_option("resources", "max_nodes"):
+            capacity = _config.getint("resources", "max_nodes")
+        
+        self.writeline("### HYDRA SLAVE ###")
+        self.writeline("Identifier: " + slavename)
+        
+        if owner != None:
+            self.writeline("Owner: " + owner);
+            
+        if capacity != None:
+            self.writeline("Capacity: " + str(capacity));
+            
+        """ mark the end of parameters """
+        self.writeline(".");
+        
+        """ read the first message from the master """
         data = self.readline()
         
+        """ read until no more data is received """
         while data:
+            """ remove spaces and endline tags from the data """
             data = data.strip()
-            self.process(data)
+            
+            try:
+                """ forward the received data to the process method """
+                self.process(data)
+            except ValueError:
+                self.writeline("402 INCOMPLETE-COMMAND")
+            
+            """ read the next message """
             data = self.readline()
             
         print("master connection closed (" + peer_address[0] + ":" + str(peer_address[1]) + ")")
+        
+    def createsession(self, session_id, hydra_url):
+        """ make config and sessions locally available """
+        global _config
+        global _sessions
+        
+        try:
+            return self.getsession(session_id)
+        except SessionNotFoundError:
+            """ create a new session object """
+            ret = Session(_config, session_id, hydra_url)
+            
+            """ store the session locally """
+            _sessions[session_id] = ret
+            
+            return ret
+        
+    def getsession(self, session_id):
+        """ make sessions locally available """
+        global _sessions
+        
+        ret = None
+        
+        if session_id in _sessions:
+            ret = _sessions[session_id]
+        else:
+            raise SessionNotFoundError("Session ID " + str(session_id) + " is not created yet")
+        
+        return ret
+    
+    def removesession(self, session_id):
+        """ make config and sessions locally available """
+        global _config
+        global _sessions
+        
+        if session_id in _sessions:
+            del _sessions[session_id]
             
     def process(self, data):
-        global setups
-        
-        if data.startswith("session"):
-            (key, skey) = data.split(" ", 1)
+        """ allowed command starts with: session, node, action or quit """
+        if data.startswith("session create"):
+            """ session create <session-id> <hydra-url> """
+            (keyword1, keyword2, session_id, hydra_url) = data.split(" ", 3)
             
-            if skey in setups:
-                self.setup = setups[skey]
-            else:
-                self.setup = setup.Setup(skey, config)
-                setups[skey] = self.setup
+            """ create or get session """
+            s = self.createsession(session_id, hydra_url)
             
-            self.session = Session(config, skey, self.setup)
+            """ report success """
+            self.writeline("200 SESSION-CREATED " + str(session_id))
             
-            self.write("200 SESSION-KEY-SET " + self.session.session_key + "\n")
+        elif data.startswith("session destroy"):
+            """ session destroy <session-id> """
+            (keyword1, keyword2, session_id) = data.split(" ", 2)
             
-        elif self.session:
-            if data.startswith("prepare"):
-                self.session.prepare(data)
-                self.write("200 PREPARED\n")
+            try:
+                """ get the requested session """
+                s = self.getsession(session_id)
                 
-            elif data.startswith("add-node"):
-                self.session.add_node(data)
-                self.write("200 ADDED\n")
+                """ execute clean-up command """
+                s.cleanup()
                 
-            elif data.startswith("remove-node"):
-                self.session.remove_node(data)
-                self.write("200 REMOVED\n")
+                """ remove session """
+                self.removesession(session_id)
                 
-            elif data.startswith("action"):
-                ret = self.session.action(data)
+                """ report success """
+                self.writeline("200 SESSION-REMOVED " + str(session_id))
+            except SessionNotFoundError:
+                """ report failure """
+                self.writeline("401 SESSION-NOT-EXISTS " + str(session_id))
                 
+        elif data.startswith("session prepare"):
+            """ session prepare <session-id> """
+            (keyword1, keyword2, session_id) = data.split(" ", 2)
+            
+            try:
+                """ get the requested session """
+                s = self.getsession(session_id)
+                
+                """ execute prepare command """
+                s.prepare()
+                
+                """ report success """
+                self.writeline("200 SESSION-PREPARED " + str(session_id))
+            except SessionNotFoundError:
+                """ report failure """
+                self.writeline("401 SESSION-NOT-EXISTS " + str(session_id))
+                
+        elif data.startswith("session run"):
+            """ session run <session-id> """
+            (keyword1, keyword2, session_id) = data.split(" ", 2)
+            
+            try:
+                """ get the requested session """
+                s = self.getsession(session_id)
+                
+                """ execute run command """
+                s.run()
+                
+                """ report success """
+                self.writeline("200 RUN-SUCCESSFUL " + str(session_id))
+            except SessionNotFoundError:
+                """ report failure """
+                self.writeline("401 SESSION-NOT-EXISTS " + str(session_id))
+            except TimeoutError:
+                """ report failure """
+                self.writeline("300 RUN-TIMED-OUT " + str(session_id))
+            
+        elif data.startswith("session stop"):
+            """ session stop <session-id> """
+            (keyword1, keyword2, session_id) = data.split(" ", 2)
+            
+            try:
+                """ get the requested session """
+                s = self.getsession(session_id)
+                
+                """ execute stop command """
+                s.stop()
+                
+                """ report success """
+                self.writeline("200 SESSION-STOPPED " + str(session_id))
+            except SessionNotFoundError:
+                """ report failure """
+                self.writeline("401 SESSION-NOT-EXISTS " + str(session_id))
+                
+        elif data.startswith("node create"):
+            """ node create <session-id> <node-id> <ip-address> <node-name> """
+            (keyword1, keyword2, session_id, node_id, address, node_name) = data.split(" ", 5)
+            
+            try:
+                """ get the requested session """
+                s = self.getsession(session_id)
+                
+                """ split ip-address and netmask """
+                (ip_address, netmask) = address.split("/", 1)
+                
+                """ execute add command """
+                s.add_node(node_id, node_name, ip_address, netmask)
+                
+                """ report success """
+                self.writeline("200 NODE-CREATED " + str(session_id) + "/" + str(node_id))
+            except SessionNotFoundError:
+                """ report failure """
+                self.writeline("401 SESSION-NOT-EXISTS " + str(session_id))
+                
+        elif data.startswith("node destroy"):
+            """ node destroy <session-id> <node-id> """
+            (keyword1, keyword2, session_id, node_id) = data.split(" ", 3)
+            
+            try:
+                """ get the requested session """
+                s = self.getsession(session_id)
+                
+                """ execute remove command """
+                s.remove_node(node_id)
+                
+                """ report success """
+                self.writeline("200 NODE-DESTROYED " + str(session_id) + "/" + str(node_id))
+            except SessionNotFoundError:
+                """ report failure """
+                self.writeline("401 SESSION-NOT-EXISTS " + str(session_id))
+                
+        elif data.startswith("action"):
+            """ action <session-id> <action-to-execute> """
+            (keyword, session_id, action) = data.split(" ", 2)
+            
+            try:
+                """ get the requested session """
+                s = self.getsession(session_id)
+                
+                """ execute action command """
+                ret = s.action(action)
+                
+                """ report success / result """
                 if ret != None:
-                    self.write("212 ACTION-RESULT-LISTING\n")
-                    self.write("\n".join(ret))
-                    self.write("\n.\n")
+                    self.writeline("212 ACTION-RESULT-LISTING")
+                    self.writeline("\n".join(ret))
+                    self.writeline(".")
                 else:
-                    self.write("200 ACTION-EXECUTED\n")
+                    self.writeline("200 ACTION-EXECUTED " + str(session_id))
+            except SessionNotFoundError:
+                """ report failure """
+                self.writeline("401 SESSION-NOT-EXISTS " + str(session_id))
                 
-            elif data.startswith("quit"):
-                try:
-                    self.write("200 BYE\n")
-                    self.wfile.close()
-                    self.wfile = None
-                    self.rfile.close()
-                    self.rfile = None
-                except:
-                    pass
-                
-            elif data.startswith("run"):
-                try:
-                    self.session.run(data)
-                    self.write("200 STARTED\n")
-                except setup.TimeoutError:
-                    self.write("301 TIMEOUT\n")
-                
-            elif data.startswith("stop"):
-                self.session.stop(data)
-                self.write("200 STOPPED\n")
-                
-            elif data.startswith("cleanup"):
-                self.session.cleanup(data)
-                self.write("200 CLEAN-UP-DONE\n")
-                
-            else:
-                self.write("404 COMMAND-NOT-FOUND\n")
-                
+        elif data.startswith("quit"):
+            """ quit """
+            try:
+                self.writeline("200 BYE")
+                self.wfile.close()
+                self.wfile = None
+                self.rfile.close()
+                self.rfile = None
+            except:
+                pass
+            
         else:
-            self.write("300 SESSION-KEY-NOT-SET\n")
-
+            self.writeline("404 COMMAND-NOT-FOUND")
 
 class UplinkConnection:
     
@@ -127,7 +328,7 @@ class UplinkConnection:
     
     def run(self):
         """ get configuration credentials """
-        address = (config.get('master','host'), config.getint('master','port'))
+        address = (_config.get('master','host'), _config.getint('master','port'))
         
         """ create a new uplink handler """
         uplink = UplinkHandler();
@@ -173,15 +374,15 @@ class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
     daemon_threads = True
 
 def serve_controlpoint(c):
-    global config
+    global _config
     
     """ assign global config object """
-    config = c
+    _config = c
 
     """ try to create a server socket if general:port is defined """
     try:
         """ define address to listen to """
-        address = ('', config.getint('general','port'))
+        address = ('', _config.getint('general','port'))
         
         """ create threaded tcp server """
         server = ThreadedTCPServer(address, ControlPointServer)

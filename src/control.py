@@ -39,7 +39,7 @@ class VirtualNode(object):
         self.conn = conn
         self.setupobj = setup
         self.control = None
-        self.virt_name = ("hydra", self.setupobj.session_id, self.name)
+        self.virt_name = ("hydra", self.setupobj.session.session_id, self.name)
         self.imagefile = None
         
         try:
@@ -71,7 +71,6 @@ class VirtualNode(object):
                   self.setupobj.paths['base'] + "/prepare_image_node.sh",
                   self.imagefile,
                   self.setupobj.paths['base'],
-                  self.setupobj.paths['setup'],
                   self.name,
                   self.address[0],
                   self.address[1] ]

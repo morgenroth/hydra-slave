@@ -1,7 +1,12 @@
 #!/usr/bin/python
-#
-# hydra opportunistic emulator
-# (c) 2010 IBR
+
+'''
+HYDRA - Opportunistic Emulator
+
+@author: Johannes Morgenroth <morgenroth@ibr.cs.tu-bs.de>
+@author: Sebastian Schildt <schildt@ibr.cs.tu-bs.de>
+
+'''
 
 import ConfigParser
 from optparse import OptionParser
