@@ -211,13 +211,14 @@ class NodeControl(object):
             """ stats interfaces """
             stats_result["iface"] = {}
             result = self.query(("stats", "interfaces"))
-            for line in result:
-                if len(line.strip()) > 0:
-                    (key, data) = line.split(" ", 1)
-                    stats_result["iface"][key] = {}
-                    for entry in data.split(" "):
-                        (vkey, value) = entry.split(":", 1)
-                        stats_result["iface"][key][vkey] = value.strip()
+            if result:
+                for line in result:
+                    if len(line.strip()) > 0:
+                        (key, data) = line.split(" ", 1)
+                        stats_result["iface"][key] = {}
+                        for entry in data.split(" "):
+                            (vkey, value) = entry.split(":", 1)
+                            stats_result["iface"][key][vkey] = value.strip()
 
             """ dtnd stats """
             stats_result["dtnd"] = {}
@@ -226,34 +227,38 @@ class NodeControl(object):
             stats_result["dtnd"]["info"] = {}
             
             result = self.query(("dtnd", "stats", "info"))
-            for line in result:
-                if len(line.strip()) > 0:
-                    (key, data) = line.split(":", 1)
-                    stats_result["dtnd"]["info"][key] = data.strip()
+            if result:
+                for line in result:
+                    if len(line.strip()) > 0:
+                        (key, data) = line.split(":", 1)
+                        stats_result["dtnd"]["info"][key] = data.strip()
                     
             """ dtnd stats bundles """
             stats_result["dtnd"]["bundles"] = {}
             result = self.query(("dtnd", "stats", "bundles"))
-            for line in result:
-                if len(line.strip()) > 0:
-                    (key, data) = line.split(":", 1)
-                    stats_result["dtnd"]["bundles"][key] = data.strip()
+            if result:
+                for line in result:
+                    if len(line.strip()) > 0:
+                        (key, data) = line.split(":", 1)
+                        stats_result["dtnd"]["bundles"][key] = data.strip()
             
             """ clock get all """
             stats_result["clock"] = {}
             result = self.query(("clock", "get", "all"))
-            for line in result:
-                if len(line.strip()) > 0:
-                    (key, data) = line.split(":", 1)
-                    stats_result["clock"][key] = data.strip()
+            if result:
+                for line in result:
+                    if len(line.strip()) > 0:
+                        (key, data) = line.split(":", 1)
+                        stats_result["clock"][key] = data.strip()
                     
             """ get position """
             stats_result["position"] = {}
             result = self.query(("position", "get"))
-            for line in result:
-                if len(line.strip()) > 0:
-                    (key, data) = line.split(":", 1)
-                    stats_result["position"][key] = data.strip()
+            if result:
+                for line in result:
+                    if len(line.strip()) > 0:
+                        (key, data) = line.split(":", 1)
+                        stats_result["position"][key] = data.strip()
 
         except socket.error, msg:
             self.log("[ERROR] " + str(msg))

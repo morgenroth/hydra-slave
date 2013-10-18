@@ -163,7 +163,8 @@ class Setup(object):
             self.paths['imagefile'] = os.path.splitext(self.paths['imagefile'])[0]
             
         """ create path for image files """
-        os.makedirs(self.paths['images'])
+        if not os.path.exists(self.paths['images']):
+            os.makedirs(self.paths['images'])
         
         """ mark this setup as prepared """
         self.state = State.PREPARED
