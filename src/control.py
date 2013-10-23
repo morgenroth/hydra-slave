@@ -272,8 +272,8 @@ class NodeControl(object):
     def query(self, query):
         try:
             """ debug: print query """
-            if self.setupobj.debug:
-                self.log("query '" + " ".join(query) + "'")
+            #if self.setupobj.debug:
+            #    self.log("query '" + " ".join(query) + "'")
             
             """ send query """
             self.sock.send(" ".join(query) + "\n")
@@ -282,10 +282,10 @@ class NodeControl(object):
             (code, result) = self.recv_response()
             
             """ debug: print query result """
-            if self.setupobj.debug:
-                self.log("query result [" + str(code) + "]")
-                for line in result:
-                    self.log(line)
+            #if self.setupobj.debug:
+            #    self.log("query result [" + str(code) + "]")
+            #    for line in result:
+            #        self.log(line)
             
             return result
         except socket.error, msg:
@@ -297,17 +297,17 @@ class NodeControl(object):
             self.sock.send(" ".join(("system", "script")) + "\n")
             
             """ debug: print script """
-            if self.setupobj.debug:
-                for line in data.split('\n'):
-                    self.log(line.strip())
+            #if self.setupobj.debug:
+            #    for line in data.split('\n'):
+            #        self.log(line.strip())
             
             (code, result) = self.recv_response(data)
             
             """ debug: print script result """
-            if self.setupobj.debug:
-                self.log("script result [" + str(code) + "]")
-                for line in result:
-                    self.log(line)
+            #if self.setupobj.debug:
+            #    self.log("script result [" + str(code) + "]")
+            #    for line in result:
+            #        self.log(line)
             
             return result
         except socket.error, msg:
