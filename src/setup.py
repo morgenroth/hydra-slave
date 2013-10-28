@@ -402,12 +402,19 @@ class Setup(object):
                 self.log("ERROR: node '" + node_name + "' not found")
         elif action.startswith("stats "):
             (cmd, node_name) = action.split(" ", 1)
-
-            try:
-                n = self.nodes[node_name.strip()]
-                return [ json.dumps(n.control.stats()) ]
-            except KeyError:
-                self.log("ERROR: node '" + node_name + "' not found")
+            
+            if node_name == "*":
+                stats = {}
+                for key, n in self.nodes.iteritems():
+                    stats[key] = n.control.stats()
+                return [ json.dumps(stats) ]
+            else:
+                try:
+                    n = self.nodes[node_name.strip()]
+                    return [ json.dumps(n.control.stats()) ]
+                except KeyError:
+                    self.log("ERROR: node '" + node_name + "' not found")
+                    
         elif action.startswith("dtnd "):
             (cmd, node_name, action) = action.split(" ", 2)
 
