@@ -9,6 +9,15 @@ import shutil
 import os
 from xml.dom import minidom
 
+def json_cast(value):
+    try:
+        try:
+            return int(value.strip())
+        except ValueError:
+            return float(value.strip())
+    except ValueError:
+        return value.strip()
+
 class PhysicalNode(object):
     def __init__(self, setup, conn, name, address):
         '''
@@ -218,7 +227,7 @@ class NodeControl(object):
                         stats_result["iface"][key] = {}
                         for entry in data.split(" "):
                             (vkey, value) = entry.split(":", 1)
-                            stats_result["iface"][key][vkey] = value.strip()
+                            stats_result["iface"][key][vkey] = json_cast(value)
 
             """ dtnd stats """
             stats_result["dtnd"] = {}
@@ -231,7 +240,7 @@ class NodeControl(object):
                 for line in result:
                     if len(line.strip()) > 0:
                         (key, data) = line.split(":", 1)
-                        stats_result["dtnd"]["info"][key] = data.strip()
+                        stats_result["dtnd"]["info"][key] = json_cast(data)
                     
             """ dtnd stats bundles """
             stats_result["dtnd"]["bundles"] = {}
@@ -240,7 +249,7 @@ class NodeControl(object):
                 for line in result:
                     if len(line.strip()) > 0:
                         (key, data) = line.split(":", 1)
-                        stats_result["dtnd"]["bundles"][key] = data.strip()
+                        stats_result["dtnd"]["bundles"][key] = json_cast(data)
             
             """ clock get all """
             stats_result["clock"] = {}
@@ -249,7 +258,7 @@ class NodeControl(object):
                 for line in result:
                     if len(line.strip()) > 0:
                         (key, data) = line.split(":", 1)
-                        stats_result["clock"][key] = data.strip()
+                        stats_result["clock"][key] = json_cast(data)
                     
             """ get position """
             stats_result["position"] = {}
@@ -258,7 +267,7 @@ class NodeControl(object):
                 for line in result:
                     if len(line.strip()) > 0:
                         (key, data) = line.split(":", 1)
-                        stats_result["position"][key] = data.strip()
+                        stats_result["position"][key] = json_cast(data)
 
         except socket.error, msg:
             self.log("[ERROR] " + str(msg))
