@@ -209,6 +209,15 @@ class NodeControl(object):
                 data = " ".join(("clock", "set", "timeofday", str(timeofday_sec), str(timeofday_usec)))
                 self.sock.send(data + "\n")
                 self.recv_response()
+                
+    def toArray(self, result):
+        ret = {}
+        if result:
+            for line in result:
+                if len(line.strip()) > 0:
+                    (key, data) = line.split(":", 1)
+                    ret[key] = json_cast(data)
+        return ret
             
     def stats(self):
         self.log("query node stats")
@@ -233,41 +242,24 @@ class NodeControl(object):
             stats_result["dtnd"] = {}
 
             """ dtnd stats info """
-            stats_result["dtnd"]["info"] = {}
-            
             result = self.query(("dtnd", "stats", "info"))
-            if result:
-                for line in result:
-                    if len(line.strip()) > 0:
-                        (key, data) = line.split(":", 1)
-                        stats_result["dtnd"]["info"][key] = json_cast(data)
+            stats_result["dtnd"]["info"] = self.toArray(result)
                     
             """ dtnd stats bundles """
-            stats_result["dtnd"]["bundles"] = {}
             result = self.query(("dtnd", "stats", "bundles"))
-            if result:
-                for line in result:
-                    if len(line.strip()) > 0:
-                        (key, data) = line.split(":", 1)
-                        stats_result["dtnd"]["bundles"][key] = json_cast(data)
+            stats_result["dtnd"]["bundles"] = self.toArray(result)
+                        
+            """ dtnd stats timesync """
+            result = self.query(("dtnd", "stats", "timesync"))
+            stats_result["dtnd"]["bundles"] = self.toArray(result)
             
             """ clock get all """
-            stats_result["clock"] = {}
             result = self.query(("clock", "get", "all"))
-            if result:
-                for line in result:
-                    if len(line.strip()) > 0:
-                        (key, data) = line.split(":", 1)
-                        stats_result["clock"][key] = json_cast(data)
+            stats_result["clock"] = self.toArray(result)
                     
             """ get position """
-            stats_result["position"] = {}
             result = self.query(("position", "get"))
-            if result:
-                for line in result:
-                    if len(line.strip()) > 0:
-                        (key, data) = line.split(":", 1)
-                        stats_result["position"][key] = json_cast(data)
+            stats_result["position"] = self.toArray(result)
 
         except socket.error, msg:
             self.log("[ERROR] " + str(msg))
