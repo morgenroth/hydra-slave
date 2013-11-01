@@ -251,7 +251,7 @@ class NodeControl(object):
                         
             """ dtnd stats timesync """
             result = self.query(("dtnd", "stats", "timesync"))
-            stats_result["dtnd"]["bundles"] = self.toArray(result)
+            stats_result["dtnd"]["timesync"] = self.toArray(result)
             
             """ clock get all """
             result = self.query(("clock", "get", "all"))
