@@ -324,33 +324,48 @@ class NodeControl(object):
             
     def setup(self, open_addresses):
         script = [ "/usr/sbin/iptables -F" ]
+
+        """ create incoming chain """
+        script.append("/usr/sbin/iptables -X hydra_in")
+        script.append("/usr/sbin/iptables -N hydra_in")
         
+        """ create outgoing chain """
+        script.append("/usr/sbin/iptables -X hydra_out")
+        script.append("/usr/sbin/iptables -N hydra_out")
+        
+        """ redirect traffic to accounting """
+        script.append("/usr/sbin/iptables -A OUTPUT -o $(uci get network.lan.ifname) -j hydra_out")
+        
+        """ drop all further traffic """
+        script.append("/usr/sbin/iptables -A INPUT -i $(uci get network.lan.ifname) -j DROP")
+        
+        """ accounting outgoing traffic """
+        script.append("/usr/sbin/iptables -A hydra_out -p tcp -j ACCEPT")
+        script.append("/usr/sbin/iptables -A hydra_out -p udp -j ACCEPT")
+        script.append("/usr/sbin/iptables -A hydra_out -p icmp -j ACCEPT")
+        
+        """ accounting incoming traffic """
+        script.append("/usr/sbin/iptables -A hydra_in -p tcp -j ACCEPT")
+        script.append("/usr/sbin/iptables -A hydra_in -p udp -j ACCEPT")
+        script.append("/usr/sbin/iptables -A hydra_in -p icmp -j ACCEPT")
+
+        """ allow static connections """
         for addr in open_addresses:
-            script.append("/usr/sbin/iptables -A OUTPUT -d " + addr + "/32 -j ACCEPT")
-            script.append("/usr/sbin/iptables -A INPUT -s " + addr + "/32 -j ACCEPT")
-
-        """ allow loopback traffic """
-        script.append("/usr/sbin/iptables -A OUTPUT -d 127.0.0.1/8 -j ACCEPT")
-        script.append("/usr/sbin/iptables -A INPUT -s 127.0.0.1/8 -j ACCEPT")
-
-        """ allow multicast traffic """
-        #script.append("/usr/sbin/iptables -A OUTPUT -m pkttype --pkt-type multicast -j ACCEPT")
-        script.append("/usr/sbin/iptables -A OUTPUT --protocol igmp -j ACCEPT")
-        script.append("/usr/sbin/iptables -A OUTPUT --dst 224.0.0.0/4 -j ACCEPT")
+            script.append("/usr/sbin/iptables -A hydra_in -s " + addr + "/32 -j ACCEPT")
         
-        script.append("/usr/sbin/iptables -P OUTPUT DROP")
-        script.append("/usr/sbin/iptables -P INPUT DROP")
+        """ set default rules """
+        script.append("/usr/sbin/iptables -P OUTPUT ACCEPT")
+        script.append("/usr/sbin/iptables -P FORWARD ACCEPT")
+        script.append("/usr/sbin/iptables -P INPUT ACCEPT")
         
         self.script('\n'.join(script))
         
     def connectionUp(self, address):
-        script = [ "/usr/sbin/iptables -I OUTPUT -d " + address + "/32 -j ACCEPT",
-                  "/usr/sbin/iptables -I INPUT -s " + address + "/32 -j ACCEPT" ]
+        script = [ "/usr/sbin/iptables -I INPUT -i $(uci get network.lan.ifname) -s " + address + "/32 -j hydra_in" ]
         self.script('\n'.join(script))
         
     def connectionDown(self, address):
-        script = [ "/usr/sbin/iptables -D OUTPUT -d " + address + "/32 -j ACCEPT", 
-                  "/usr/sbin/iptables -D INPUT -s " + address + "/32 -j ACCEPT" ]
+        script = [ "/usr/sbin/iptables -D INPUT -i $(uci get network.lan.ifname) -s " + address + "/32 -j hydra_in" ]
         self.script('\n'.join(script))
         
     def recv_response(self, data = None):
