@@ -229,14 +229,7 @@ class Setup(object):
                 
                 ''' list of open addresses for the node '''
                 oalist = []
-                
-                ''' if the multicast interface is defined use it as open address '''
-                if self.mcast_interface != "":
-                    oalist.append(self.mcast_interface)
-                    
-                ''' open the connection to the default address of the slave '''
-                oalist.append(socket.gethostbyname(socket.gethostname()))
-                
+
                 ''' read the monitor node list '''
                 monitor_list = open(os.path.join(self.paths['base'], "monitor-nodes.txt"), "r")
                 for maddress in monitor_list.readlines():
