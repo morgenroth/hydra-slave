@@ -338,7 +338,7 @@ class NodeControl(object):
         
         """ allow static connections """
         for addr in open_addresses:
-            script.append("/usr/sbin/iptables -A INSERT -i $(uci get network.lan.ifname) -s " + addr + "/32 -j hydra_in")
+            script.append("/usr/sbin/iptables -A INPUT -i $(uci get network.lan.ifname) -s " + addr + "/32 -j hydra_in")
         
         """ drop all further traffic """
         script.append("/usr/sbin/iptables -A INPUT -i $(uci get network.lan.ifname) -j DROP")
