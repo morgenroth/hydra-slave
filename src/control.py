@@ -280,7 +280,6 @@ class NodeControl(object):
                     else:
                         if current != None:
                             current[vkey] = json_cast(value)
-        print(ret)
         return ret
     
     def stats_traffic(self, chain):
