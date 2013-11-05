@@ -336,6 +336,10 @@ class NodeControl(object):
         """ redirect traffic to accounting """
         script.append("/usr/sbin/iptables -A OUTPUT -o $(uci get network.lan.ifname) -j hydra_out")
         
+        """ allow static connections """
+        for addr in open_addresses:
+            script.append("/usr/sbin/iptables -A INSERT -i $(uci get network.lan.ifname) -s " + addr + "/32 -j hydra_in")
+        
         """ drop all further traffic """
         script.append("/usr/sbin/iptables -A INPUT -i $(uci get network.lan.ifname) -j DROP")
         
@@ -349,10 +353,6 @@ class NodeControl(object):
         script.append("/usr/sbin/iptables -A hydra_in -p udp -j ACCEPT")
         script.append("/usr/sbin/iptables -A hydra_in -p icmp -j ACCEPT")
 
-        """ allow static connections """
-        for addr in open_addresses:
-            script.append("/usr/sbin/iptables -A INSERT -i $(uci get network.lan.ifname) -s " + addr + "/32 -j hydra_in")
-        
         """ set default rules """
         script.append("/usr/sbin/iptables -P OUTPUT ACCEPT")
         script.append("/usr/sbin/iptables -P FORWARD ACCEPT")
