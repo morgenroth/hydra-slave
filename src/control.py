@@ -351,7 +351,7 @@ class NodeControl(object):
 
         """ allow static connections """
         for addr in open_addresses:
-            script.append("/usr/sbin/iptables -A hydra_in -s " + addr + "/32 -j ACCEPT")
+            script.append("/usr/sbin/iptables -A INSERT -i $(uci get network.lan.ifname) -s " + addr + "/32 -j hydra_in")
         
         """ set default rules """
         script.append("/usr/sbin/iptables -P OUTPUT ACCEPT")
