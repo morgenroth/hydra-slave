@@ -227,16 +227,15 @@ class NodeControl(object):
         
         try:
             """ stats interfaces """
-            stats_result["iface"] = {}
-            result = self.query(("stats", "interfaces"))
-            if result:
-                for line in result:
-                    if len(line.strip()) > 0:
-                        (key, data) = line.split(" ", 1)
-                        stats_result["iface"][key] = {}
-                        for entry in data.split(" "):
-                            (vkey, value) = entry.split(":", 1)
-                            stats_result["iface"][key][vkey] = json_cast(value)
+            stats_result["iface"] = self.stats_ifaces()
+                            
+            """ hydra traffic """
+            stats_result["traffic"] = {}
+            stats_result["traffic"]["in"] = self.stats_traffic("hydra_in")
+            stats_result["traffic"]["out"] = self.stats_traffic("hydra_out")
+                            
+            """ get generic stats """
+            stats_result["collection"] = self.stats_generic()
 
             """ dtnd stats """
             stats_result["dtnd"] = {}
@@ -265,6 +264,41 @@ class NodeControl(object):
             self.log("[ERROR] " + str(msg))
             
         return stats_result
+    
+    def stats_generic(self):
+        ret = {}
+        current = None
+        result = self.query(("stats", "collection"))
+        if result:
+            for line in result:
+                if len(line.strip()) > 0:
+                    (vkey, value) = line.split(":", 1)
+                    
+                    if vkey[0] == '#':
+                        ret[value.strip()] = {}
+                        current = ret[value.strip()]
+                    else:
+                        if current != None:
+                            current[vkey] = json_cast(value)
+        print(ret)
+        return ret
+    
+    def stats_traffic(self, chain):
+        ret = self.script("iptables -L " + chain + " -n -v -x | tail -n 3 | awk '{print $4 \"_pkt: \" $1 \"\\n\" $4 \"_byte: \" $2}'")
+        return self.toArray(ret)
+    
+    def stats_ifaces(self):
+        ret = {}
+        result = self.query(("stats", "interfaces"))
+        if result:
+            for line in result:
+                if len(line.strip()) > 0:
+                    (key, data) = line.split(" ", 1)
+                    ret[key] = {}
+                    for entry in data.split(" "):
+                        (vkey, value) = entry.split(":", 1)
+                        ret[key][vkey] = json_cast(value)
+        return ret
     
     def dtnd(self, action):
         self.log("collect DTN daemon data '" + action + "'")
