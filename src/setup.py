@@ -16,6 +16,7 @@ from disco import DiscoverySocket
 import control 
 import tarfile
 import ConfigParser
+import concurrent
 
 class TimeoutError(Exception):
     pass
@@ -336,6 +337,9 @@ class Setup(object):
         except KeyError:
             self.log("ERROR: node '" + node + "' not found")
             
+    def stats(self, n):
+        return n.control.stats()
+        
     def action(self, action):
         if self.state != State.RUNNING:
             return
@@ -397,9 +401,7 @@ class Setup(object):
             (cmd, node_name) = action.split(" ", 1)
             
             if node_name == "*":
-                stats = {}
-                for key, n in self.nodes.iteritems():
-                    stats[key] = n.control.stats()
+                stats = concurrent.concurrent(self.stats, self.nodes)
                 return [ json.dumps(stats) ]
             else:
                 try:
