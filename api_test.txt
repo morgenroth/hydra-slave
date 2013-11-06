@@ -1,0 +1,7 @@
+session create 1234 http://localhost:8893/hydra
+session prepare 1234
+node create 1234 1 10.242.2.1/255.255.0.0 n1
+node create 1234 2 10.242.2.2/255.255.0.0 n2
+node create 1234 3 10.242.2.2/255.255.0.0 n3
+session run 1234
+session destroy 1234
