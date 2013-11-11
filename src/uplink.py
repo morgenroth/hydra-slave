@@ -41,6 +41,7 @@ from session import Session
 from setup import TimeoutError
 import ConfigParser
 import time
+import threading
 
 """ global config object """
 _config = None
@@ -325,13 +326,15 @@ class UplinkHandler:
         else:
             self.writeline("404 COMMAND-NOT-FOUND")
 
-class UplinkConnection:
+class UplinkConnection(threading.Thread):
     
     s = None
     running = True
     suffix = None
+    cond = threading.Condition()
     
     def __init__(self, suffix):
+        threading.Thread.__init__(self)
         self.suffix = suffix
     
     def run(self):
@@ -341,32 +344,57 @@ class UplinkConnection:
         """ create a new uplink handler """
         uplink = UplinkHandler();
         
-        while self.running:
-            try:
-                """ create a new socket """
-                self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        """ get condition lock """
+        self.cond.acquire()
+        
+        try:
+            while self.running:
+                try:
+                    """ create a new socket """
+                    self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    
+                    """ connect to the master server """
+                    self.s.connect(address)
+                    
+                    """ create file handles for the socket """
+                    uplink.rfile = self.s.makefile('rb')
+                    uplink.wfile = self.s.makefile('wb')
+                except socket.error, e:
+                    print("Error: " + str(e))
                 
-                """ connect to the master server """
-                self.s.connect(address)
+                """ release condition lock while handling communication """
+                self.cond.release()
                 
-                """ create file handles for the socket """ 
-                uplink.rfile = self.s.makefile('rb')
-                uplink.wfile = self.s.makefile('wb')
+                try:
+                    """ handle connection data """
+                    uplink.handle(address, self.suffix)
+                except socket.error, e:
+                    print("Error: " + str(e))
+                finally:
+                    """ restore condition lock """
+                    self.cond.acquire()
                 
-                """ handle connection data """
-                uplink.handle(address, self.suffix)
-                
-                """ close the socket """
-                self.s.close()
-            except socket.error, e:
-                print("Error: " + str(e))
-            
-            """ idle for some seconds """
-            time.sleep(2)
+                try:
+                    """ close the socket """
+                    self.s.close()
+                except socket.error, e:
+                    print("Error: " + str(e))
+    
+                """ idle for some seconds """
+                self.cond.wait(2.0)
+        finally:
+            """ release condition lock """
+            self.cond.release()
         
     def close(self):
-        self.running = False
-        self.s.close()
+        try:
+            self.cond.acquire()
+            self.running = False
+            self.s.close()
+        finally:
+            self.cond.notify()
+            self.cond.release()
+        
 
 class ControlPointServer(SocketServer.StreamRequestHandler):
     
@@ -386,9 +414,16 @@ def serve_controlpoint(c, suffix):
     
     """ assign global config object """
     _config = c
+    conn = None
+    
+    """ get configuration for master connection """
+    if _config.has_option("master", "host") and _config.has_option("master", "port"):
+        """ initiate a client connection to the master """
+        conn = UplinkConnection(suffix)
+        conn.start()
 
-    """ try to create a server socket if general:port is defined """
-    try:
+    """ create a listening tcp server if the port is defined """
+    if _config.has_option("general", "port"):
         """ define address to listen to """
         address = ('', _config.getint('general','port'))
         
@@ -397,18 +432,10 @@ def serve_controlpoint(c, suffix):
         
         """ start tcp server loop """
         server.serve_forever()
-        
-        return
-    except ConfigParser.NoSectionError:
-        pass
-    except ConfigParser.NoOptionError:
-        pass
-
-    """ initiate a client connection to the master """
-    conn = UplinkConnection(suffix)
-    conn.run()
-
-    print("exit")
+    
+    """ wait until the client thread has finished """
+    if conn != None:
+        conn.join()
     
 def clean_sessions():
     global _sessions
