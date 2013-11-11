@@ -14,30 +14,33 @@
 ### END INIT INFO
  
 # execution path
-DIR="/usr/share/hydra-slave"
-DAEMON="${DIR}/src/default.py"
-DAEMON_NAME="hydra-slave"
+NAME="hydra-slave"
+DAEMON="/usr/bin/${NAME}"
+
+# Exit if the package is not installed
+[ -x $DAEMON ] || exit 0
+
+# Read configuration variable file if it is present
+[ -r /etc/default/$NAME ] && . /etc/default/$NAME
+
+# Exit if explicitly told to
+[ "$ENABLED" != "0" ] || exit 0
 
 # config path
-CONFIG_FILE="/etc/hydra-slave/slave.properties"
-ARGS="-c ${CONFIG_FILE}"
-
-# This next line determines what user the script runs as.
-# Root generally not recommended but necessary if you are using the Raspberry Pi GPIO from Python.
-DAEMON_USER=hydra
+ARGS="-c ${DAEMON_CONF}"
 
 # The process ID of the script when it runs is stored here:
-PIDFILE=/var/run/$DAEMON_NAME.pid
+PIDFILE=/var/run/${NAME}.pid
 
 . /lib/lsb/init-functions
 
 do_start () {
-    log_daemon_msg "Starting system $DAEMON_NAME daemon"
+    log_daemon_msg "Starting ${NAME} daemon"
     start-stop-daemon --start --background --pidfile $PIDFILE --make-pidfile -c $DAEMON_USER --user $DAEMON_USER --startas $DAEMON -- ${ARGS}
     log_end_msg $?
 }
 do_stop () {
-    log_daemon_msg "Stopping system $DAEMON_NAME daemon"
+    log_daemon_msg "Stopping ${NAME} daemon"
     start-stop-daemon --stop --pidfile $PIDFILE --retry 10
     log_end_msg $?
 }
@@ -54,7 +57,7 @@ case "$1" in
         ;;
  
     status)
-        status_of_proc "$DAEMON_NAME" "$DAEMON" && exit 0 || exit $?
+        status_of_proc "${NAME}" "$DAEMON" && exit 0 || exit $?
         ;;
     *)
         echo "Usage: /etc/init.d/$DEAMON_NAME {start|stop|restart|status}"

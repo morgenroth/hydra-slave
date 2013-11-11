@@ -1,0 +1,15 @@
+Source: hydra-slave
+Section: net
+Priority: optional
+Maintainer: Johannes Morgenroth <morgenroth@ibr.cs.tu-bs.de>
+Build-Depends: debhelper (>=7.0.50~), python-support (>= 0.6), cdbs (>= 0.4.49), python-all-dev
+Standards-Version: 3.8.4
+
+Package: hydra-slave
+Architecture: all
+Homepage: http://www.ibr.cs.tu-bs.de
+Depends: ${misc:Depends}, ${python:Depends}, libvirt-bin, python-libvirt, bridge-utils, sudo
+Description: Hydra Slave Daemon
+ The hydra slave daemon is part of the hydra emulation framework for large-scale
+ software testing in disrupted networks.
+

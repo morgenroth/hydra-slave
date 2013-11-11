@@ -1,0 +1,5 @@
+hydra-slave (0.2.0) UNRELEASED; urgency=low
+
+  * Initial release.
+
+ -- Johannes Morgenroth <morgenroth@ibr.cs.tu-bs.de>  Mon, 11 Nov 2013 16:48:09 +0100

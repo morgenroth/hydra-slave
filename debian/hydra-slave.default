@@ -1,0 +1,12 @@
+# Defaults for hydra-slave initscript
+# sourced by /etc/init.d/hydra-slave
+# installed at /etc/default/hydra-slave by the maintainer scripts
+
+# Set to '0' to explicitly disable starting hydra-slave daemon
+#ENABLED=0
+
+# Configuration file for the daemon
+DAEMON_CONF="/etc/hydra-slave.conf"
+
+# Run the daemon as this specific user
+DAEMON_USER="hydra"
