@@ -21,11 +21,15 @@ class Session(object):
     
     """ if true, the session will fake all commands """
     fake = False
+    
+    """ name of the instance this session is running """
+    instance_name = None
 
-    def __init__(self, config, session_id, hydra_url):
+    def __init__(self, instance_name, config, session_id, hydra_url):
         '''
         Constructor
         '''
+        self.instance_name = instance_name
         self.config = config
         self.session_id = session_id
         self.hydra_url = hydra_url

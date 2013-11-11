@@ -113,7 +113,7 @@ class UplinkHandler:
             return self.getsession(session_id)
         except SessionNotFoundError:
             """ create a new session object """
-            ret = Session(self.parent.config, session_id, hydra_url)
+            ret = Session(self.parent.instance_name, self.parent.config, session_id, hydra_url)
             
             """ store the session locally """
             self.parent.sessions[session_id] = ret
