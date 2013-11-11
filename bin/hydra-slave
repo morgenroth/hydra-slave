@@ -10,9 +10,11 @@ HYDRA - Opportunistic Emulator
 
 import ConfigParser
 from optparse import OptionParser
-import uplink
+from hydraslave import uplink
 import signal
 import time
+import os
+import sys
 
 """ slave instances """
 instances = []
@@ -40,7 +42,7 @@ if __name__ == '__main__':
     parser = OptionParser(usage=usage)
     
     """ add options to the parser """
-    parser.add_option("-c", "--config-file", dest="configfile", default="slave.properties",
+    parser.add_option("-c", "--config-file", dest="configfile", default="/etc/hydra-slave.conf",
         help="specify the configuration file")
     
     ''' parse arguments '''
@@ -48,6 +50,11 @@ if __name__ == '__main__':
     
     """ read configuration """
     config = ConfigParser.RawConfigParser()
+
+    if not os.path.isfile(options.configfile):
+        print("configuration file not found in path: " + str(options.configfile))
+        sys.exit(1)
+
     print("read configuration: " + options.configfile)
     config.read(options.configfile)
     
