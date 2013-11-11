@@ -39,15 +39,7 @@ import SocketServer
 import socket
 from session import Session
 from setup import TimeoutError
-import ConfigParser
-import time
 import threading
-
-""" global config object """
-_config = None
-
-""" global session pool """
-_sessions = {}
 
 class SessionNotFoundError(Exception):
     def __init__(self, value):
@@ -62,6 +54,12 @@ class UplinkHandler:
     """ file to receive data from the master """
     rfile = None
     
+    """ parent object holding sessions and the config object """
+    parent = None
+    
+    def __init__(self, parent):
+        self.parent = parent
+    
     """ write data to the master """
     def writeline(self, data):
         self.wfile.write(data + "\n")
@@ -75,32 +73,11 @@ class UplinkHandler:
             return None
     
     """ this method handles the chat between the master and the slave """
-    def handle(self, peer_address, suffix):
+    def handle(self, instance_name, peer_address, owner, capacity):
         print("master connection opened (" + peer_address[0] + ":" + str(peer_address[1]) + ")")
         
-        """ handshake parameters """
-        slavename = socket.gethostname()
-        owner = None
-        capacity = None
-        
-        """ get the slave name """
-        if _config.has_option("general", "name"):
-            slavename = _config.get("general", "name")
-        
-        """ get owner if set """
-        if _config.has_option("general", "owner"):
-            owner = _config.get("general", "owner")
-        
-        """ get capacity if set """
-        if _config.has_option("resources", "max_nodes"):
-            capacity = _config.getint("resources", "max_nodes")
-            
-        """ add slavename suffix """
-        if suffix != None:
-            slavename += "-" + str(suffix)
-        
         self.writeline("### HYDRA SLAVE ###")
-        self.writeline("Identifier: " + slavename)
+        self.writeline("Identifier: " + instance_name)
         
         if owner != None:
             self.writeline("Owner: " + owner);
@@ -132,28 +109,23 @@ class UplinkHandler:
         
     def createsession(self, session_id, hydra_url):
         """ make config and sessions locally available """
-        global _config
-        global _sessions
-        
         try:
             return self.getsession(session_id)
         except SessionNotFoundError:
             """ create a new session object """
-            ret = Session(_config, session_id, hydra_url)
+            ret = Session(self.parent.config, session_id, hydra_url)
             
             """ store the session locally """
-            _sessions[session_id] = ret
+            self.parent.sessions[session_id] = ret
             
             return ret
         
     def getsession(self, session_id):
         """ make sessions locally available """
-        global _sessions
-        
         ret = None
         
-        if session_id in _sessions:
-            ret = _sessions[session_id]
+        if session_id in self.parent.sessions:
+            ret = self.parent.sessions[session_id]
         else:
             raise SessionNotFoundError("Session ID " + str(session_id) + " is not created yet")
         
@@ -161,11 +133,8 @@ class UplinkHandler:
     
     def removesession(self, session_id):
         """ make config and sessions locally available """
-        global _config
-        global _sessions
-        
-        if session_id in _sessions:
-            del _sessions[session_id]
+        if session_id in self.parent.sessions:
+            del self.parent.sessions[session_id]
             
     def process(self, data):
         """ allowed command starts with: session, node, action or quit """
@@ -326,23 +295,59 @@ class UplinkHandler:
         else:
             self.writeline("404 COMMAND-NOT-FOUND")
 
-class UplinkConnection(threading.Thread):
+class UplinkInstance(threading.Thread):
+    """ config object """
+    config = None
     
-    s = None
+    """ session pool """
+    sessions = {}
+    
+    """ name of this instance """
+    instance_name = None
+    
+    """ the owner of this instance """
+    owner = None
+    
+    """ the capacity of this instance """
+    capacity = None
+    
+    """ client socket """
+    sock = None
+    
+    """ mark this instance as running or not """
     running = True
-    suffix = None
+
+    """ condition to synchronize this instance with the main thread """
     cond = threading.Condition()
     
-    def __init__(self, suffix):
+    def __init__(self, c, instanceId):
         threading.Thread.__init__(self)
-        self.suffix = suffix
+        self.config = c
+        
+        """ get the slave name """
+        if self.config.has_option("general", "name"):
+            self.instance_name = self.config.get("general", "name")
+        else:
+            self.instance_name = socket.gethostname()
+            
+        """ add slavename suffix """
+        if instanceId != None:
+            self.instance_name += "-" + str(instanceId)
+
+        """ get owner if set """
+        if self.config.has_option("general", "owner"):
+            self.owner = self.config.get("general", "owner")
+        
+        """ get capacity if set """
+        if self.config.has_option("resources", "max_nodes"):
+            self.capacity = self.config.getint("resources", "max_nodes")
     
     def run(self):
         """ get configuration credentials """
-        address = (_config.get('master','host'), _config.getint('master','port'))
+        address = (self.config.get('master','host'), self.config.getint('master','port'))
         
         """ create a new uplink handler """
-        uplink = UplinkHandler();
+        uplink = UplinkHandler(self);
         
         """ get condition lock """
         self.cond.acquire()
@@ -351,32 +356,32 @@ class UplinkConnection(threading.Thread):
             while self.running:
                 try:
                     """ create a new socket """
-                    self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     
                     """ connect to the master server """
-                    self.s.connect(address)
+                    self.sock.connect(address)
                     
                     """ create file handles for the socket """
-                    uplink.rfile = self.s.makefile('rb')
-                    uplink.wfile = self.s.makefile('wb')
+                    uplink.rfile = self.sock.makefile('rb')
+                    uplink.wfile = self.sock.makefile('wb')
+                    
+                    """ release condition lock while handling communication """
+                    self.cond.release()
+                    
+                    try:
+                        """ handle connection data """
+                        uplink.handle(self.instance_name, address, self.owner, self.capacity)
+                    except socket.error, e:
+                        print("Error: " + str(e))
+                    finally:
+                        """ restore condition lock """
+                        self.cond.acquire()
                 except socket.error, e:
                     print("Error: " + str(e))
-                
-                """ release condition lock while handling communication """
-                self.cond.release()
-                
-                try:
-                    """ handle connection data """
-                    uplink.handle(address, self.suffix)
-                except socket.error, e:
-                    print("Error: " + str(e))
-                finally:
-                    """ restore condition lock """
-                    self.cond.acquire()
                 
                 try:
                     """ close the socket """
-                    self.s.close()
+                    self.sock.close()
                 except socket.error, e:
                     print("Error: " + str(e))
     
@@ -387,61 +392,98 @@ class UplinkConnection(threading.Thread):
             self.cond.release()
         
     def close(self):
+        print("close instance")
         try:
             self.cond.acquire()
             self.running = False
-            self.s.close()
+            self.sock.close()
         finally:
             self.cond.notify()
             self.cond.release()
+            
+        print("close done")
+            
+    def cleanup(self):
+        for key, s in self.sessions.iteritems():
+            print("clean up session " + str(key))
+            s.cleanup()
         
+    def shutdown(self):
+        self.close();
 
 class ControlPointServer(SocketServer.StreamRequestHandler):
     
     def handle(self):
-        uplink = UplinkHandler();
+        parent = self.__class__.parent
+        
+        uplink = UplinkHandler(parent);
         uplink.rfile = self.rfile
         uplink.wfile = self.wfile
-        uplink.handle(self.client_address, None)
-
+        uplink.handle(parent.instance_name, self.client_address, parent.owner, parent.capacity)
 
 class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
     allow_reuse_address = 1
     daemon_threads = True
 
-def serve_controlpoint(c, suffix):
-    global _config
+class UplinkServer(threading.Thread):
+    """ config object """
+    config = None
     
-    """ assign global config object """
-    _config = c
-    conn = None
+    """ session pool """
+    sessions = {}
     
-    """ get configuration for master connection """
-    if _config.has_option("master", "host") and _config.has_option("master", "port"):
-        """ initiate a client connection to the master """
-        conn = UplinkConnection(suffix)
-        conn.start()
+    """ server for connections of the master """
+    server = None
+    
+    """ name of this instance """
+    instance_name = None
+    
+    """ the owner of this instance """
+    owner = None
+    
+    """ the capacity of this instance """
+    capacity = None
+    
+    def __init__(self, c):
+        threading.Thread.__init__(self)
+        self.config = c
 
-    """ create a listening tcp server if the port is defined """
-    if _config.has_option("general", "port"):
+        """ get the slave name """
+        if self.config.has_option("general", "name"):
+            self.instance_name = self.config.get("general", "name")
+        else:
+            self.instance_name = socket.gethostname()
+
+        """ get owner if set """
+        if self.config.has_option("general", "owner"):
+            self.owner = self.config.get("general", "owner")
+        else:
+            self.owner = None
+        
+        """ get capacity if set """
+        if self.config.has_option("resources", "max_nodes"):
+            self.capacity = self.config.getint("resources", "max_nodes")
+        else:
+            self.capacity = None
+            
+        """ assign ourself as static parent """
+        ControlPointServer.parent = self
+        
         """ define address to listen to """
-        address = ('', _config.getint('general','port'))
+        address = ('', self.config.getint('general','port'))
         
         """ create threaded tcp server """
-        server = ThreadedTCPServer(address, ControlPointServer)
+        self.server = ThreadedTCPServer(address, ControlPointServer)
         
+    def run(self):
         """ start tcp server loop """
-        server.serve_forever()
-    
-    """ wait until the client thread has finished """
-    if conn != None:
-        conn.join()
-    
-def clean_sessions():
-    global _sessions
-    
-    for key, s in _sessions.iteritems():
-        print("clean up session " + str(key))
-        s.cleanup()
-
-    
+        self.server.serve_forever()
+        
+    def shutdown(self):
+        if self.server != None:
+            self.server.shutdown()
+        
+    def cleanup(self):
+        for key, s in self.sessions.iteritems():
+            print("clean up session " + str(key))
+            s.cleanup()

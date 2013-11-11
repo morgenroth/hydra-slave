@@ -8,17 +8,30 @@ HYDRA - Opportunistic Emulator
 
 '''
 
-import multiprocessing as mp
 import ConfigParser
 from optparse import OptionParser
 import uplink
+import signal
+import time
 
-def p_main(config, slaveid):
-    try:
-        uplink.serve_controlpoint(config, slaveid)
-    except KeyboardInterrupt:
-        """ shutdown all sessions """
-        uplink.clean_sessions()
+""" slave instances """
+instances = []
+
+""" slave server """
+server = None
+
+""" flag for main loop """
+running = True
+
+def signal_handler(signum = None, frame = None):
+    global running
+    running = False
+
+""" register SIGTERM handler """
+signal.signal(signal.SIGTERM, signal_handler)
+
+""" register SIGINT handler """
+signal.signal(signal.SIGINT, signal_handler)
 
 if __name__ == '__main__':
     print("- hydra slave node 0.2 -")
@@ -38,27 +51,50 @@ if __name__ == '__main__':
     print("read configuration: " + options.configfile)
     config.read(options.configfile)
     
-    """ default: launch on instance """
-    num_instances = 1
+    """ create a listening tcp server if the port is defined """
+    if config.has_option("general", "port"):
+        server = uplink.UplinkServer(config)
+        server.start()
     
-    """ read number of instances """
-    if config.has_option("resources", "instances"):
-        num_instances = config.getint("resources", "instances")
-    
-    instances = []
-    
-    try:
+    if config.has_option("master", "host") and config.has_option("master", "port"):
+        """ default: launch one client instance """
+        num_instances = 1
+        
+        """ read number of instances """
+        if config.has_option("resources", "instances"):
+            num_instances = config.getint("resources", "instances")
+        
         if num_instances < 2:
-            instances.append(mp.Process(target=p_main, args=(config, None)))
+            """ create one client instances """
+            instances.append(uplink.UplinkInstance(config, None))
         else:
+            """ create several client instances """
             for i in range(0, num_instances):
-                instances.append(mp.Process(target=p_main, args=(config, i + 1)))
+                instances.append(uplink.UplinkInstance(config, i + 1))
 
+        """ start all instances """
         for i in instances:
             i.start()
-        
-        for i in instances:
-            i.join()
-    except KeyboardInterrupt:
+            
+    """ wait until the running flags was set to False """
+    try:
+        while running:
+            time.sleep(1)
+    except:
         pass
+    
+    if server != None:
+        print 'shutdown server'
+        server.shutdown()
 
+    print 'shutdown all slave instances'
+    for i in instances:
+        i.shutdown()
+    
+    """ wait until all instances closed """
+    for i in instances:
+        i.join()
+    
+    """ join the server """
+    if server != None:
+        server.join()
