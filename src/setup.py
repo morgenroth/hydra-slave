@@ -300,7 +300,8 @@ class Setup(object):
     
     def cleanup(self):
         if self.state != State.STOPPED and self.state != State.INITIAL:
-            return
+            """ shutdown the session """
+            self.shutdown()
         
         for nodeId, v in self.nodes.iteritems():
             v.undefine()
@@ -314,7 +315,7 @@ class Setup(object):
             
         self.nodes = {}
         
-        """ mark this setup as not prepared """
+        """ mark this setup as initial """
         self.state = State.INITIAL
         
     def connectionUp(self, node, peer_address):
