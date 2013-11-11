@@ -8,7 +8,6 @@ import json
 import os
 import shutil
 import urllib
-import socket
 import time
 import sys
 import libvirt
