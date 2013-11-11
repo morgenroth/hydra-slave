@@ -1,0 +1,66 @@
+#!/bin/sh
+ 
+### BEGIN INIT INFO
+# Provides:          hydra-slave
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Should-Start:      $network $time $libvirtd
+# Should-Stop:       $network $time
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Hydra Slave Daemon
+# Description:       Slave of the Hydra emulation framework for
+#                    large-scale software testing in disrupted networks
+### END INIT INFO
+ 
+# execution path
+DIR="/usr/share/hydra-slave"
+DAEMON="${DIR}/src/default.py"
+DAEMON_NAME="hydra-slave"
+
+# config path
+CONFIG_FILE="/etc/hydra-slave/slave.properties"
+ARGS="-c ${CONFIG_FILE}"
+
+# This next line determines what user the script runs as.
+# Root generally not recommended but necessary if you are using the Raspberry Pi GPIO from Python.
+DAEMON_USER=hydra
+
+# The process ID of the script when it runs is stored here:
+PIDFILE=/var/run/$DAEMON_NAME.pid
+
+. /lib/lsb/init-functions
+
+do_start () {
+    log_daemon_msg "Starting system $DAEMON_NAME daemon"
+    start-stop-daemon --start --background --pidfile $PIDFILE --make-pidfile -c $DAEMON_USER --user $DAEMON_USER --startas $DAEMON -- ${ARGS}
+    log_end_msg $?
+}
+do_stop () {
+    log_daemon_msg "Stopping system $DAEMON_NAME daemon"
+    start-stop-daemon --stop --pidfile $PIDFILE --retry 10
+    log_end_msg $?
+}
+
+case "$1" in
+ 
+    start|stop)
+        do_${1}
+        ;;
+ 
+    restart|reload|force-reload)
+        do_stop
+        do_start
+        ;;
+ 
+    status)
+        status_of_proc "$DAEMON_NAME" "$DAEMON" && exit 0 || exit $?
+        ;;
+    *)
+        echo "Usage: /etc/init.d/$DEAMON_NAME {start|stop|restart|status}"
+        exit 1
+        ;;
+ 
+esac
+exit 0
+
