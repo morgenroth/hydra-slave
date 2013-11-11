@@ -64,13 +64,9 @@ if __name__ == '__main__':
         if config.has_option("resources", "instances"):
             num_instances = config.getint("resources", "instances")
         
-        if num_instances < 2:
-            """ create one client instances """
-            instances.append(uplink.UplinkInstance(config, None))
-        else:
-            """ create several client instances """
-            for i in range(0, num_instances):
-                instances.append(uplink.UplinkInstance(config, i + 1))
+        """ create several client instances """
+        for i in range(0, num_instances):
+            instances.append(uplink.UplinkInstance(config, i))
 
         """ start all instances """
         for i in instances:
