@@ -33,4 +33,6 @@ if __name__ == '__main__':
     try:
         uplink.serve_controlpoint(config)
     except KeyboardInterrupt:
-        pass
+        """ shutdown all sessions """
+        uplink.clean_sessions()
+

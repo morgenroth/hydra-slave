@@ -401,3 +401,12 @@ def serve_controlpoint(c):
     conn.run()
 
     print("exit")
+    
+def clean_sessions():
+    global _sessions
+    
+    for key, s in _sessions.iteritems():
+        print("clean up session " + str(key))
+        s.cleanup()
+
+    
