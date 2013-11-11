@@ -31,8 +31,8 @@ class Session(object):
         self.hydra_url = hydra_url
         self.setup = Setup(self)
 
-	if self.config.has_option('general', 'fake'):
-	    self.fake = (self.config.get('general', 'fake') == "yes")
+        if self.config.has_option('general', 'fake'):
+            self.fake = (self.config.get('general', 'fake') == "yes")
         
     def prepare(self):
         self.setup.log("preparing setup")
