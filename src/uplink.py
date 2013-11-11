@@ -74,7 +74,7 @@ class UplinkHandler:
             return None
     
     """ this method handles the chat between the master and the slave """
-    def handle(self, peer_address):
+    def handle(self, peer_address, suffix):
         print("master connection opened (" + peer_address[0] + ":" + str(peer_address[1]) + ")")
         
         """ handshake parameters """
@@ -93,6 +93,10 @@ class UplinkHandler:
         """ get capacity if set """
         if _config.has_option("resources", "max_nodes"):
             capacity = _config.getint("resources", "max_nodes")
+            
+        """ add slavename suffix """
+        if suffix != None:
+            slavename += "-" + str(suffix)
         
         self.writeline("### HYDRA SLAVE ###")
         self.writeline("Identifier: " + slavename)
@@ -325,6 +329,10 @@ class UplinkConnection:
     
     s = None
     running = True
+    suffix = None
+    
+    def __init__(self, suffix):
+        self.suffix = suffix
     
     def run(self):
         """ get configuration credentials """
@@ -346,7 +354,7 @@ class UplinkConnection:
                 uplink.wfile = self.s.makefile('wb')
                 
                 """ handle connection data """
-                uplink.handle(address)
+                uplink.handle(address, self.suffix)
                 
                 """ close the socket """
                 self.s.close()
@@ -366,14 +374,14 @@ class ControlPointServer(SocketServer.StreamRequestHandler):
         uplink = UplinkHandler();
         uplink.rfile = self.rfile
         uplink.wfile = self.wfile
-        uplink.handle(self.client_address)
+        uplink.handle(self.client_address, None)
 
 
 class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
     allow_reuse_address = 1
     daemon_threads = True
 
-def serve_controlpoint(c):
+def serve_controlpoint(c, suffix):
     global _config
     
     """ assign global config object """
@@ -397,7 +405,7 @@ def serve_controlpoint(c):
         pass
 
     """ initiate a client connection to the master """
-    conn = UplinkConnection()
+    conn = UplinkConnection(suffix)
     conn.run()
 
     print("exit")
