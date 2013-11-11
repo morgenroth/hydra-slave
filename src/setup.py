@@ -180,11 +180,15 @@ class Setup(object):
         """ add the virtual node object """
         self.nodes[nodeId] = v
         
-        """ define / create the node object """
-        v.define(self.virt_type, self.paths['imagefile'], self.virt_template)
+        try:
+            """ define / create the node object """
+            v.define(self.virt_type, self.paths['imagefile'], self.virt_template)
             
-        """ debug """
-        self.log("node " + str(nodeId) + " '" + str(nodeName) + "' defined")
+            """ debug """
+            self.log("node " + str(nodeId) + " '" + str(nodeName) + "' defined")
+        except:
+            """ debug """
+            self.log("node " + str(nodeId) + " '" + str(nodeName) + "' failed: " + str(sys.exc_info()[0]))
         
     def remove_node(self, nodeId):
         if self.state != State.STOPPED and self.state != State.PREPARED:
@@ -306,7 +310,10 @@ class Setup(object):
         for nodeId, v in self.nodes.iteritems():
             v.undefine()
             if v.imagefile != None:
-                os.remove(v.imagefile)
+                try:
+                    os.remove(v.imagefile)
+                except OSError as e:
+                    self.log("OS error: " + str(e))
             self.log("node '" + nodeId + "' undefined")
             
         """ delete the old stuff """
