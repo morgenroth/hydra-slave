@@ -71,6 +71,16 @@ class UplinkHandler:
             return self.rfile.readline()
         else:
             return None
+        
+    def close(self):
+        """ quit """
+        try:
+            self.wfile.close()
+            self.wfile = None
+            self.rfile.close()
+            self.rfile = None
+        except:
+            pass
     
     """ this method handles the chat between the master and the slave """
     def handle(self, instance_name, peer_address, owner, capacity):
@@ -314,6 +324,9 @@ class UplinkInstance(threading.Thread):
     """ client socket """
     sock = None
     
+    """ client handler """
+    uplink = None
+    
     """ mark this instance as running or not """
     running = True
 
@@ -347,7 +360,7 @@ class UplinkInstance(threading.Thread):
         address = (self.config.get('master','host'), self.config.getint('master','port'))
         
         """ create a new uplink handler """
-        uplink = UplinkHandler(self);
+        self.uplink = UplinkHandler(self);
         
         """ get condition lock """
         self.cond.acquire()
@@ -362,15 +375,15 @@ class UplinkInstance(threading.Thread):
                     self.sock.connect(address)
                     
                     """ create file handles for the socket """
-                    uplink.rfile = self.sock.makefile('rb')
-                    uplink.wfile = self.sock.makefile('wb')
+                    self.uplink.rfile = self.sock.makefile('rb')
+                    self.uplink.wfile = self.sock.makefile('wb')
                     
                     """ release condition lock while handling communication """
                     self.cond.release()
                     
                     try:
                         """ handle connection data """
-                        uplink.handle(self.instance_name, address, self.owner, self.capacity)
+                        self.uplink.handle(self.instance_name, address, self.owner, self.capacity)
                     except socket.error, e:
                         print("Error: " + str(e))
                     finally:
@@ -392,16 +405,15 @@ class UplinkInstance(threading.Thread):
             self.cond.release()
         
     def close(self):
-        print("close instance")
         try:
             self.cond.acquire()
             self.running = False
+            self.uplink.close()
+            self.sock.shutdown(socket.SHUT_RDWR)
             self.sock.close()
         finally:
             self.cond.notify()
             self.cond.release()
-            
-        print("close done")
             
     def cleanup(self):
         for key, s in self.sessions.iteritems():
@@ -409,7 +421,8 @@ class UplinkInstance(threading.Thread):
             s.cleanup()
         
     def shutdown(self):
-        self.close();
+        self.close()
+        self.cleanup()
 
 class ControlPointServer(SocketServer.StreamRequestHandler):
     
