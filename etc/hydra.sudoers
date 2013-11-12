@@ -1,1 +1,1 @@
-%hydra	ALL = NOPASSWD: ALL
+hydra	ALL = NOPASSWD: ALL
