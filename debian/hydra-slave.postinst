@@ -6,6 +6,7 @@ if [ -n "$DEBIAN_SCRIPT_DEBUG" ]; then set -v -x; DEBIAN_SCRIPT_TRACE=1; fi
 ${DEBIAN_SCRIPT_TRACE:+ echo "#42#DEBUG# RUNNING $0 $*" 1>&2 }
 
 HYDRA_USER="hydra"
+HYDRA_WORKSPACE="/var/lib/hydra"
 
 invoke() {
   if [ -x /usr/sbin/invoke-rc.d ]; then
@@ -28,7 +29,7 @@ case "$1" in
 		  --disabled-login \
 		  --ingroup daemon \
 		  --no-create-home \
-		  --home /nonexistent \
+		  --home ${HYDRA_WORKSPACE} \
 		  --gecos "Hydra Emulation Framework" \
 		  --shell /bin/false \
 		  --quiet \
@@ -42,6 +43,13 @@ case "$1" in
 		ucf --debconf-ok /usr/share/doc/hydra-slave/hydra.sudoers /etc/sudoers.d/hydra
 		ucfr hydra-slave /etc/sudoers.d/hydra
 		chmod 440 /etc/sudoers.d/hydra
+	fi
+	
+	# create workspace
+	if [ ! -d "${HYDRA_WORKSPACE}" -a ! -L "${HYDRA_WORKSPACE}" ]; then
+		mkdir -p ${HYDRA_WORKSPACE}
+		chown ${HYDRA_USER}:daemon ${HYDRA_WORKSPACE}
+		chmod 775 ${HYDRA_WORKSPACE}
 	fi
 	
     invoke start
