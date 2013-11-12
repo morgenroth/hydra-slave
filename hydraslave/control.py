@@ -8,6 +8,7 @@ import socket
 import shutil
 import os
 from xml.dom import minidom
+import logging
 
 def json_cast(value):
     try:
@@ -29,10 +30,10 @@ class PhysicalNode(object):
         self.setupobj = setup
         self.control = None
         
-        self.log("physical node defined")
+        logging.info(self.log_format("physical node defined"))
         
-    def log(self, message):
-        self.setupobj.log("*" + self.name + "* " + message)
+    def log_format(self, message):
+        return self.setupobj.log_format("*" + self.name + "* " + message)
 
 class VirtualNode(object):
     '''
@@ -54,12 +55,12 @@ class VirtualNode(object):
         
         try:
             self.dom = conn.lookupByName("-".join(self.virt_name))
-            self.log("previous instance found")
+            logging.warning(self.log_format("previous instance found"))
         except:
-            self.log("create a new instance")
+            logging.info(self.log_format("create a new instance"))
             
-    def log(self, message):
-        self.setupobj.log("*" + self.name + "* " + message)
+    def log_format(self, message):
+        return self.setupobj.log_format("*" + self.name + "* " + message)
         
     def define(self, virt_type, image_template, xml_template, bridges):
         if self.dom != None:
@@ -77,7 +78,7 @@ class VirtualNode(object):
         ''' copy the image '''
         shutil.copy(image_template, self.imagefile)
         
-        self.log("image preparation")
+        logging.info(self.log_format("image preparation"))
         
         """ run individual preparation script """
         params = [ "/bin/bash",
@@ -168,8 +169,8 @@ class NodeControl(object):
         if bindaddr != None:
             self.sock.bind((bindaddr, 0))
             
-    def log(self, message):
-        self.setupobj.log("#" + self.name + "# " + message)
+    def log_format(self, message):
+        return self.setupobj.log_format("#" + self.name + "# " + message)
         
     def connect(self):
         try:
@@ -178,13 +179,13 @@ class NodeControl(object):
                       
             """ receive and decode node banner """
             banner = self.file.readline().split(' ')
-            self.log("Node '" + banner[2] + "' connected - " + banner[0] + " version " + banner[1] + " (" + banner[3].strip() + ")")
+            logging.info(self.log_format("Node '" + banner[2] + "' connected - " + banner[0] + " version " + banner[1] + " (" + banner[3].strip() + ")"))
             
             if banner[2] != self.name:
-                self.log("[ERROR] Node name does not match: " + self.name + " != " + banner[2])
+                logging.error(self.log_format("Node name does not match: " + self.name + " != " + banner[2]))
             
         except socket.error, msg:
-            self.log("[ERROR] " + str(msg))
+            logging.error(self.log_format(str(msg)))
             raise msg
 
     def close(self):
@@ -192,10 +193,10 @@ class NodeControl(object):
             self.file.close()
             self.sock.close()
         except socket.error, msg:
-            self.log("[ERROR] " + str(msg))
+            logging.error(self.log_format(str(msg)))
     
     def position(self, x, y, z = 0.0):
-        self.log("new position x:" + str(x) + " y:" + str(y) + " z:" + str(z))
+        logging.debug(self.log_format("new position x:" + str(x) + " y:" + str(y) + " z:" + str(z)))
         try:
             if self.current_position == None:
                 data = " ".join(("position", "enable"))
@@ -209,7 +210,7 @@ class NodeControl(object):
             self.sock.send(data + "\n")
             self.recv_response()
         except socket.error, msg:
-            self.log("[ERROR] " + str(msg))
+            logging.error(self.log_format(str(msg)))
             
     def clock(self, offset, frequency, timeofday_sec, timeofday_usec):
         # offset <useconds>
@@ -241,7 +242,7 @@ class NodeControl(object):
         return ret
             
     def stats(self):
-        self.log("query node stats")
+        logging.info(self.log_format("query node stats"))
         
         """ collect all known stats and return an summary array """
         stats_result = {}
@@ -282,7 +283,7 @@ class NodeControl(object):
             stats_result["position"] = self.toArray(result)
 
         except socket.error, msg:
-            self.log("[ERROR] " + str(msg))
+            logging.error(self.log_format(str(msg)))
             
         return stats_result
     
@@ -321,14 +322,14 @@ class NodeControl(object):
         return ret
     
     def dtnd(self, action):
-        self.log("collect DTN daemon data '" + action + "'")
+        logging.info(self.log_format("collect DTN daemon data '" + action + "'"))
         return self.query(("dtnd", action))
     
     def query(self, query):
         try:
             """ debug: print query """
             #if self.setupobj.debug:
-            #    self.log("query '" + " ".join(query) + "'")
+            #    logging.debug(self.log_format("query '" + " ".join(query) + "'"))
             
             """ send query """
             self.sock.send(" ".join(query) + "\n")
@@ -338,43 +339,43 @@ class NodeControl(object):
             
             """ debug: print query result """
             #if self.setupobj.debug:
-            #    self.log("query result [" + str(code) + "]")
+            #    logging.debug(self.log_format("query result [" + str(code) + "]"))
             #    for line in result:
-            #        self.log(line)
+            #        logging.debug(self.log_format(line))
             
             return result
         except socket.error, msg:
-            self.log("[ERROR] " + str(msg))
+            logging.error(self.log_format(str(msg)))
     
     def script(self, data):
-        self.log("calling script")
+        logging.info(self.log_format("calling script"))
         try:
             self.sock.send(" ".join(("system", "script")) + "\n")
             
             """ debug: print script """
             #if self.setupobj.debug:
             #    for line in data.split('\n'):
-            #        self.log(line.strip())
+            #        logging.debug(self.log_format(line.strip()))
             
             (code, result) = self.recv_response(data)
             
             """ debug: print script result """
             #if self.setupobj.debug:
-            #    self.log("script result [" + str(code) + "]")
+            #    logging.debug(self.log_format("script result [" + str(code) + "]"))
             #    for line in result:
-            #        self.log(line)
+            #        logging.debug(self.log_format(line))
             
             return result
         except socket.error, msg:
-            self.log("[ERROR] " + str(msg))
+            logging.error(self.log_format(str(msg)))
         
     def shutdown(self):
-        self.log("halt")
+        logging.info(self.log_format("halt"))
         try:
             self.sock.send(" ".join(("system", "shutdown")) + "\n")
             self.recv_response()
         except socket.error, msg:
-            self.log("[ERROR] " + str(msg))
+            logging.error(self.log_format(str(msg)))
             
     def setup(self, open_addresses):
         script = [ "/usr/sbin/iptables -F" ]

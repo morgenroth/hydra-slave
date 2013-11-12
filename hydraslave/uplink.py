@@ -40,6 +40,7 @@ import socket
 from session import Session
 from setup import TimeoutError
 import threading
+import logging
 
 class SessionNotFoundError(Exception):
     def __init__(self, value):
@@ -81,10 +82,13 @@ class UplinkHandler:
             self.rfile = None
         except:
             pass
+        
+    def log_format(self, message):
+        return message
     
     """ this method handles the chat between the master and the slave """
     def handle(self, instance_name, peer_address, owner, capacity):
-        print("master connection opened (" + peer_address[0] + ":" + str(peer_address[1]) + ")")
+        logging.info(self.log_format(("master connection opened (" + peer_address[0] + ":" + str(peer_address[1]) + ")")))
         
         self.writeline("### HYDRA SLAVE ###")
         self.writeline("Identifier: " + instance_name)
@@ -115,7 +119,7 @@ class UplinkHandler:
             """ read the next message """
             data = self.readline()
             
-        print("master connection closed (" + peer_address[0] + ":" + str(peer_address[1]) + ")")
+        logging.info(self.log_format(("master connection closed (" + peer_address[0] + ":" + str(peer_address[1]) + ")")))
         
     def createsession(self, session_id, hydra_url):
         """ make config and sessions locally available """
@@ -385,18 +389,18 @@ class UplinkInstance(threading.Thread):
                         """ handle connection data """
                         self.uplink.handle(self.instance_name, address, self.owner, self.capacity)
                     except socket.error, e:
-                        print("Error: " + str(e))
+                        logging.error(self.log_format((str(e))))
                     finally:
                         """ restore condition lock """
                         self.cond.acquire()
                 except socket.error, e:
-                    print("Error: " + str(e))
+                    logging.error(self.log_format((str(e))))
                 
                 try:
                     """ close the socket """
                     self.sock.close()
                 except socket.error, e:
-                    print("Error: " + str(e))
+                    logging.error(self.log_format((str(e))))
     
                 """ idle for some seconds """
                 self.cond.wait(2.0)
@@ -417,7 +421,7 @@ class UplinkInstance(threading.Thread):
             
     def cleanup(self):
         for key, s in self.sessions.iteritems():
-            print("clean up session " + str(key))
+            logging.info(self.log_format(("clean up session " + str(key))))
             s.cleanup()
         
     def shutdown(self):
@@ -488,6 +492,9 @@ class UplinkServer(threading.Thread):
         """ create threaded tcp server """
         self.server = ThreadedTCPServer(address, ControlPointServer)
         
+    def log_format(self, message):
+        return message
+        
     def run(self):
         """ start tcp server loop """
         self.server.serve_forever()
@@ -498,5 +505,5 @@ class UplinkServer(threading.Thread):
         
     def cleanup(self):
         for key, s in self.sessions.iteritems():
-            print("clean up session " + str(key))
+            logging.info(self.log_format(("clean up session " + str(key))))
             s.cleanup()

@@ -16,6 +16,7 @@ import control
 import tarfile
 import ConfigParser
 import concurrent
+import logging
 
 class TimeoutError(Exception):
     pass
@@ -95,16 +96,16 @@ class Setup(object):
         (self.virt_type, data) = self.virt_driver.split(":", 1)
         
         if self.virt_connection == None:
-            self.log("could not connect to libvirt")
+            logging.error(self.log_format("could not connect to libvirt"))
             sys.exit(-1)
             
-        self.log("New session created")
+        logging.info(self.log_format("New session created"))
             
-    def log(self, message):
-        print("[" + self.session.session_id + "] " + message)
+    def log_format(self, message):
+        return "[" + self.session.session_id + "] " + message
         
     def sudo(self, command):
-        self.log("(sudo) " + str(command))
+        logging.info(self.log_format("(sudo) " + str(command)))
         
         if self.sudomode == "plain":
             os.system("sudo " + str(command))
@@ -145,10 +146,10 @@ class Setup(object):
                 tar.extractall(destdir)
                 tar.close()
         
-        self.log("done")
+        logging.info(self.log_format(("done")))
         
     def prepare_base(self):
-        self.log("read setup configuration: config.properties")
+        logging.info(self.log_format(("read setup configuration: config.properties")))
         baseconfig = ConfigParser.RawConfigParser()
         baseconfig.read(self.paths['base'] + "/config.properties")
         
@@ -197,10 +198,10 @@ class Setup(object):
             v.define(self.virt_type, self.paths['imagefile'], self.virt_template, self.bridges)
             
             """ debug """
-            self.log("node " + str(nodeId) + " '" + str(nodeName) + "' defined")
+            logging.info(self.log_format(("node " + str(nodeId) + " '" + str(nodeName) + "' defined")))
         except:
             """ debug """
-            self.log("node " + str(nodeId) + " '" + str(nodeName) + "' failed: " + str(sys.exc_info()[0]))
+            logging.error(self.log_format(("node " + str(nodeId) + " '" + str(nodeName) + "' failed: " + str(sys.exc_info()[0]))))
         
     def remove_node(self, nodeId):
         if self.state != State.STOPPED and self.state != State.PREPARED:
@@ -210,23 +211,23 @@ class Setup(object):
             v = self.nodes[nodeId]
             v.undefine()
             del self.nodes[nodeId]
-            self.log("node " + str(nodeId) + " undefined")
+            logging.info(self.log_format(("node " + str(nodeId) + " undefined")))
         except:
-            self.log("error while removing node '" + str(nodeId) + "'")
+            logging.error(self.log_format(("error while removing node '" + str(nodeId) + "'")))
         
     def download(self, url):
         """Copy the contents of a file from a given URL
         to a local file.
         """
         try:
-            self.log("downloading " + url)
+            logging.info(self.log_format(("downloading " + url)))
             webFile = urllib.urlopen(url)
             localFile = open(self.paths['workspace'] + "/" + url.split('/')[-1], 'w')
             localFile.write(webFile.read())
             webFile.close()
             localFile.close()
         except IOError:
-            self.log("could not get url " + url)
+            logging.error(self.log_format(("could not get url " + url)))
     
     def startup(self):
         if self.state != State.PREPARED:
@@ -278,7 +279,7 @@ class Setup(object):
                 if v.control != None:
                     active_node_count = active_node_count + 1
             
-            self.log(str(active_node_count) + " nodes discovered")
+            logging.info(self.log_format((str(active_node_count) + " nodes discovered")))
             
             if active_node_count == len(self.nodes):
                 return
@@ -293,7 +294,7 @@ class Setup(object):
         if nodeId in self.nodes:
             v = self.nodes[nodeId]
             if v.control == None:
-                self.log("New node '" + name + "' (" + str(address[0]) + ":" + str(address[1]) +") discovered")
+                logging.info(self.log_format(("New node '" + name + "' (" + str(address[0]) + ":" + str(address[1]) +") discovered")))
                 v.control = control.NodeControl(self, v.name, address, bindaddr = self.mcast_interface)
     
     def shutdown(self):
@@ -309,7 +310,7 @@ class Setup(object):
             """ destroy (turn-off) the node """
             v.destroy()
             
-            self.log("node '" + nodeId + "' destroyed")
+            logging.info(self.log_format(("node '" + nodeId + "' destroyed")))
             
         """ mark this setup as stopped """
         self.state = State.STOPPED
@@ -325,8 +326,8 @@ class Setup(object):
                 try:
                     os.remove(v.imagefile)
                 except OSError as e:
-                    self.log("OS error: " + str(e))
-            self.log("node '" + nodeId + "' undefined")
+                    logging.error(self.log_format("OS error: " + str(e)))
+            logging.info(self.log_format("node '" + nodeId + "' undefined"))
             
         """ delete the old stuff """
         if os.path.exists(self.paths['workspace']):
@@ -345,7 +346,7 @@ class Setup(object):
             n = self.nodes[node]
             n.control.connectionUp(peer_address)
         except KeyError:
-            self.log("ERROR: node '" + node + "' not found")
+            logging.error(self.log_format("node '" + node + "' not found"))
         
     def connectionDown(self, node, peer_address):
         if self.state != State.RUNNING:
@@ -355,7 +356,7 @@ class Setup(object):
             n = self.nodes[node]
             n.control.connectionDown(peer_address)
         except KeyError:
-            self.log("ERROR: node '" + node + "' not found")
+            logging.error(self.log_format("node '" + node + "' not found"))
             
     def stats(self, n):
         return n.control.stats()
@@ -377,7 +378,7 @@ class Setup(object):
                 """ call the script on the node """
                 return self.nodes[node_name].control.script(action)
             except KeyError:
-                self.log("ERROR: node '" + node_name + "' not found")
+                logging.error(self.log_format("node '" + node_name + "' not found"))
         elif action.startswith("clock "):
             (cmd, node_name, offset, frequency, sec, usec) = action.strip().split(" ", 5)
             
@@ -404,7 +405,7 @@ class Setup(object):
             try:
                 self.nodes[node_name].control.clock(offset, frequency, sec, usec)
             except KeyError:
-                self.log("ERROR: node '" + node_name + "' not found")
+                logging.error(self.log_format("node '" + node_name + "' not found"))
         elif action.startswith("position "):
             (cmd, node_name, x, y, z) = action.split(" ", 4)
             
@@ -416,7 +417,7 @@ class Setup(object):
                 else:
                     n.control.position(float(x), float(y), float(z))
             except KeyError:
-                self.log("ERROR: node '" + node_name + "' not found")
+                logging.error(self.log_format("node '" + node_name + "' not found"))
         elif action.startswith("stats "):
             (cmd, node_name) = action.split(" ", 1)
             
@@ -428,7 +429,7 @@ class Setup(object):
                     n = self.nodes[node_name.strip()]
                     return [ json.dumps(n.control.stats()) ]
                 except KeyError:
-                    self.log("ERROR: node '" + node_name + "' not found")
+                    logging.error(self.log_format("node '" + node_name + "' not found"))
                     
         elif action.startswith("dtnd "):
             (cmd, node_name, action) = action.split(" ", 2)
@@ -437,7 +438,7 @@ class Setup(object):
                 n = self.nodes[node_name]
                 return n.control.dtnd(action.strip())
             except KeyError:
-                self.log("ERROR: node '" + node_name + "' not found")
+                logging.error(self.log_format("node '" + node_name + "' not found"))
         else:
             # extract name and address
             (cmd, node_name, address) = action.split(" ", 2)
