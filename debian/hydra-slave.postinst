@@ -1,0 +1,61 @@
+#!/bin/bash -e
+
+. /usr/share/debconf/confmodule
+
+if [ -n "$DEBIAN_SCRIPT_DEBUG" ]; then set -v -x; DEBIAN_SCRIPT_TRACE=1; fi
+${DEBIAN_SCRIPT_TRACE:+ echo "#42#DEBUG# RUNNING $0 $*" 1>&2 }
+
+HYDRA_USER="hydra"
+
+invoke() {
+  if [ -x /usr/sbin/invoke-rc.d ]; then
+    invoke-rc.d hydra-slave $1
+  else
+    /etc/init.d/hydra-slave $1
+  fi
+}
+
+# stop the server
+set +e; invoke stop; set -e
+
+case "$1" in
+  configure)
+	# creating hydra user if he isn't already there
+	if ! getent passwd ${HYDRA_USER} >/dev/null; then
+		# Adding system user: hydra.
+		adduser \
+		  --system \
+		  --disabled-login \
+		  --ingroup daemon \
+		  --no-create-home \
+		  --home /nonexistent \
+		  --gecos "Hydra Emulation Framework" \
+		  --shell /bin/false \
+		  --quiet \
+		  ${HYDRA_USER}
+		
+		# Add user to libvirt group
+		usermod -a -G libvirtd ${HYDRA_USER}
+	fi
+	
+	if [ -d /etc/sudoers.d ]; then
+		ucf --debconf-ok /usr/share/doc/hydra-slave/hydra.sudoers /etc/sudoers.d/hydra
+		ucfr hydra-slave /etc/sudoers.d/hydra
+		chmod 440 /etc/sudoers.d/hydra
+	fi
+	
+    invoke start
+  ;;
+	
+  abort-upgrade|abort-remove|abort-configure)
+  ;;
+	
+  *)
+    echo "$0: didn't understand being called with \`$1'" 1>&2
+    exit 0
+  ;;
+esac
+
+#DEBHELPER#
+
+exit 0

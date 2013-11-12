@@ -1,0 +1,46 @@
+#!/bin/bash -e
+#
+# summary of how this script can be called:
+#        * <new-preinst> install
+#        * <new-preinst> install <old-version>
+#        * <new-preinst> upgrade <old-version>
+#        * <old-preinst> abort-upgrade <new-version>
+#
+
+. /usr/share/debconf/confmodule
+
+if [ -n "$DEBIAN_SCRIPT_DEBUG" ]; then set -v -x; DEBIAN_SCRIPT_TRACE=1; fi
+${DEBIAN_SCRIPT_TRACE:+ echo "#42#DEBUG# RUNNING $0 $*" 1>&2 }
+
+export PATH=$PATH:/sbin:/usr/sbin:/bin:/usr/bin
+
+stop_daemon() {
+    if [ ! -x /etc/init.d/hydra-slave ]; then return; fi
+
+    set +e
+    if [ -x /usr/sbin/invoke-rc.d ]; then
+      cmd="invoke-rc.d hydra-slave stop"
+    else
+      cmd="/etc/init.d/hydra-slave stop"
+    fi
+    $cmd
+    errno=$?
+    set -e
+   
+    # 0=ok, 100=no init script (fresh install)
+    if [ "$errno" != 0 -a "$errno" != 100 ]; then
+      echo "${cmd/ */} returned $errno" 1>&2
+      echo "There is a Hydra slave running, but we failed in our attempts to stop it." 1>&2
+      echo "Stop it yourself and try again!" 1>&2
+      exit 1
+    fi
+}
+
+################################ main() ##########################
+
+# stop the service
+stop_daemon
+
+#DEBHELPER#
+
+exit 0

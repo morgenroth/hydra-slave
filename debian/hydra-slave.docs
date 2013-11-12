@@ -1,2 +1,4 @@
+etc/hydra.sudoers
+etc/hydra-slave.conf
 docs/api_test.txt
 README.md
