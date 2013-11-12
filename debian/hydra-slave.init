@@ -44,11 +44,29 @@ do_stop () {
     start-stop-daemon --stop --pidfile $PIDFILE --retry 10
     log_end_msg $?
 }
+do_bridge_start() {
+    log_daemon_msg "Set-up ${NAME} bridge interface"
+    /sbin/brctl addbr ${BRIDGE_NAME}
+    /sbin/ifconfig ${BRIDGE_NAME} up
+    log_end_msg $?
+}
+do_bridge_stop() {
+    log_daemon_msg "Shutdown ${NAME} bridge interface"
+    /sbin/ifconfig ${BRIDGE_NAME} down
+    /sbin/brctl delbr ${BRIDGE_NAME}
+    log_end_msg $?
+}
 
 case "$1" in
  
-    start|stop)
+    start)
+    	do_bridge_${1}
         do_${1}
+        ;;
+        
+    stop)
+        do_${1}
+        do_bridge_${1}
         ;;
  
     restart|reload|force-reload)

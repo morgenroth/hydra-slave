@@ -10,3 +10,6 @@ DAEMON_CONF="/etc/hydra-slave.conf"
 
 # Run the daemon as this specific user
 DAEMON_USER="hydra"
+
+# Define the name of the bridge between the slaves
+BRIDGE_NAME="hydra0"
