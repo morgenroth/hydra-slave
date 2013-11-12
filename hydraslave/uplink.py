@@ -359,6 +359,9 @@ class UplinkInstance(threading.Thread):
         if self.config.has_option("resources", "max_nodes"):
             self.capacity = self.config.getint("resources", "max_nodes")
     
+    def log_format(self, message):
+        return message
+    
     def run(self):
         """ get configuration credentials """
         address = (self.config.get('master','host'), self.config.getint('master','port'))
