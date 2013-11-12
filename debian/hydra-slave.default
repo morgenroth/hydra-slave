@@ -2,8 +2,8 @@
 # sourced by /etc/init.d/hydra-slave
 # installed at /etc/default/hydra-slave by the maintainer scripts
 
-# Set to '0' to explicitly disable starting hydra-slave daemon
-#ENABLED=0
+# Remove or set to '1' to enable starting hydra-slave daemon
+ENABLED=0
 
 # Configuration file for the daemon
 DAEMON_CONF="/etc/hydra-slave.conf"
