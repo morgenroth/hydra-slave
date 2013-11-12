@@ -67,8 +67,14 @@ class Setup(object):
         """ ntp server used to synchronize the nodes or measure the clock offset """
         self.ntp_server = config.get('ntp', 'server')
         
+        """ define workspace path """
+        if config.has_option('general', 'workspace'):
+            workspace = config.get('general', 'workspace')
+        else:
+            workspace = "workspace"
+        
         """ define basic paths """
-        self.paths['workspace'] = os.path.join("workspace", self.session.instance_name, str(self.session.session_id))
+        self.paths['workspace'] = os.path.join(workspace, self.session.instance_name, str(self.session.session_id))
         self.paths['images'] = os.path.join(self.paths['workspace'], "images")
         self.paths['base'] = os.path.join(self.paths['workspace'], "base")
         
