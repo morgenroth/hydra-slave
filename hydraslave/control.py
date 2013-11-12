@@ -50,6 +50,7 @@ class VirtualNode(object):
         self.control = None
         self.virt_name = ("hydra", self.setupobj.session.session_id, self.name)
         self.imagefile = None
+        self.bridges = None
         
         try:
             self.dom = conn.lookupByName("-".join(self.virt_name))
@@ -60,7 +61,7 @@ class VirtualNode(object):
     def log(self, message):
         self.setupobj.log("*" + self.name + "* " + message)
         
-    def define(self, virt_type, image_template, xml_template):
+    def define(self, virt_type, image_template, xml_template, bridges):
         if self.dom != None:
             self.undefine()
         
@@ -69,6 +70,9 @@ class VirtualNode(object):
         
         ''' define the path for the image file '''
         self.imagefile = os.path.join(self.setupobj.paths['images'], "hydra-" + self.name + ".image")
+        
+        ''' define the bridge interfaces '''
+        self.bridges = bridges
         
         ''' copy the image '''
         shutil.copy(image_template, self.imagefile)
@@ -101,10 +105,27 @@ class VirtualNode(object):
         ''' rename the node '''
         doc.getElementsByTagName("name")[0].firstChild.nodeValue = "-".join(self.virt_name)
         
+        ''' replace image file '''
         for disk in doc.getElementsByTagName("disk"):
             source = disk.getElementsByTagName("source")[0]
             if source.hasAttribute("file"):
                 source.setAttribute("file", os.path.abspath(self.imagefile))
+                ''' stop processing after the first disk '''
+                break
+        
+        ''' replace bridge interface '''
+        index = 0
+        for interface in doc.getElementsByTagName("interface"):
+            ''' stop if there are no more interfaces to assign '''
+            if index >= len(self.bridges):
+                break
+            
+            ''' get the source element '''
+            source = interface.getElementsByTagName("source")[0]
+            if source.hasAttribute("bridge"):
+                if self.bridges[index] != None:
+                    source.setAttribute("bridge", self.bridges[index])
+                index = index + 1
         
         self.dom = self.conn.defineXML(doc.toxml())
         

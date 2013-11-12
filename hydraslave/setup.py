@@ -75,6 +75,13 @@ class Setup(object):
         """ define hydra download path """
         self.baseurl = self.session.hydra_url + "/dl"
         self.sessionurl = self.baseurl + "/" + self.session.session_id
+        
+        """ define bridge interfaces """
+        self.bridges = [ None, None ]
+        if config.has_option('general', 'nat_bridge'):
+            self.bridges[0] = config.get('general', 'nat_bridge')
+        if config.has_option('general', 'slave_bridge'):
+            self.bridges[1] = config.get('general', 'slave_bridge')
 
         """ libvirt configuration """
         self.virt_driver = config.get('template','virturl')
@@ -181,7 +188,7 @@ class Setup(object):
         
         try:
             """ define / create the node object """
-            v.define(self.virt_type, self.paths['imagefile'], self.virt_template)
+            v.define(self.virt_type, self.paths['imagefile'], self.virt_template, self.bridges)
             
             """ debug """
             self.log("node " + str(nodeId) + " '" + str(nodeName) + "' defined")
