@@ -15,6 +15,7 @@ import signal
 import time
 import os
 import sys
+import logging
 
 """ slave instances """
 instances = []
@@ -36,7 +37,11 @@ signal.signal(signal.SIGTERM, signal_handler)
 signal.signal(signal.SIGINT, signal_handler)
 
 if __name__ == '__main__':
-    print("- hydra slave node 0.2 -")
+    """ initialize logging options """
+    logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=logging.DEBUG)
+    
+    """ welcome message """
+    logging.info("- hydra slave node 0.2 -")
     
     usage = "usage: %prog [options]"
     parser = OptionParser(usage=usage)
@@ -52,11 +57,27 @@ if __name__ == '__main__':
     config = ConfigParser.RawConfigParser()
 
     if not os.path.isfile(options.configfile):
-        print("configuration file not found in path: " + str(options.configfile))
+        logging.error("configuration file not found in path: " + str(options.configfile))
         sys.exit(1)
 
-    print("read configuration: " + options.configfile)
+    logging.info("read configuration: " + options.configfile)
     config.read(options.configfile)
+    
+    """ get workspace """
+    if config.has_option('general', 'workspace'):
+        workspace = config.get('general', 'workspace')
+    else:
+        workspace = "workspace"
+        
+    """ create workspace """
+    if not os.path.exists(workspace):
+        os.makedirs(workspace)
+    
+    """ enable logging """
+    if config.has_option("general", "logfile"):
+        logfile = os.path.join(workspace, config.get("general", "logfile"))
+        logging.info("write logfile: " + logfile)
+        logging.getLogger().addHandler(logging.FileHandler(logfile))
     
     """ create a listening tcp server if the port is defined """
     if config.has_option("general", "port"):
@@ -87,10 +108,10 @@ if __name__ == '__main__':
         pass
     
     if server != None:
-        print 'shutdown server'
+        logging.info('shutdown server')
         server.shutdown()
 
-    print 'shutdown all slave instances'
+    logging.info('shutdown all slave instances')
     for i in instances:
         i.shutdown()
     
