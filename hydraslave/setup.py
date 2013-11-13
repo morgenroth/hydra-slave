@@ -32,26 +32,16 @@ class Setup(object):
     This class manages the node setup of a specific session.
     """
     
-    """ all node objects are stored here """
-    nodes = {}
-    
-    """ all custom paths are stored here """
-    paths = {}
-    
-    """ determine if debugging is on """
-    debug = False
-    
-    """ setup state """
-    state = State.INITIAL
-    
-    """ link to the session holding this setup """
-    session = None
-
     def __init__(self, session):
         '''
         Constructor
         '''
+        self.nodes = {}
+        self.paths = {}
+        self.debug = False
+        self.state = State.INITIAL
         self.session = session
+        self.instance_name = self.session.uplink.instance_name
         
         """ read the global configuration """
         self.read_configuration(self.session.config)
@@ -75,7 +65,7 @@ class Setup(object):
             workspace = "workspace"
         
         """ define basic paths """
-        self.paths['workspace'] = os.path.join(workspace, self.session.instance_name, str(self.session.session_id))
+        self.paths['workspace'] = os.path.join(workspace, self.instance_name, str(self.session.session_id))
         self.paths['images'] = os.path.join(self.paths['workspace'], "images")
         self.paths['base'] = os.path.join(self.paths['workspace'], "base")
         
@@ -99,10 +89,8 @@ class Setup(object):
             logging.error(self.log_format("could not connect to libvirt"))
             sys.exit(-1)
             
-        logging.info(self.log_format("New session created"))
-            
     def log_format(self, message):
-        return "[" + self.session.session_id + "] " + message
+        return self.session.log_format(message)
         
     def sudo(self, command):
         logging.info(self.log_format("(sudo) " + str(command)))
@@ -279,7 +267,7 @@ class Setup(object):
                 if v.control != None:
                     active_node_count = active_node_count + 1
             
-            logging.info(self.log_format((str(active_node_count) + " nodes discovered")))
+            logging.info(self.log_format((str(active_node_count) + "/" + str(len(self.nodes)) + " nodes discovered")))
             
             if active_node_count == len(self.nodes):
                 return
@@ -330,8 +318,11 @@ class Setup(object):
             logging.info(self.log_format("node '" + nodeId + "' undefined"))
             
         """ delete the old stuff """
-        if os.path.exists(self.paths['workspace']):
-            shutil.rmtree(self.paths['workspace'])
+        try:
+            if os.path.exists(self.paths['workspace']):
+                shutil.rmtree(self.paths['workspace'])
+        except OSError, e:
+            logging.exception(e)
             
         self.nodes = {}
         

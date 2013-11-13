@@ -1,11 +1,6 @@
 import threading
 
 class ConcurrentThread (threading.Thread):
-    func = None
-    data = None
-    key = None
-    ret = None
-    
     def __init__(self, func, key, data):
         threading.Thread.__init__(self)
         self.data = data

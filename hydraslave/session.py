@@ -8,29 +8,11 @@ from setup import Setup
 import logging
 
 class Session(object):
-    """ global ID of this session """
-    session_id = None
-    
-    """ URL where the data is retrieved from """
-    hydra_url = None
-    
-    """ setup object to handle all virtual nodes """
-    setup = None
-    
-    """ configuration object """
-    config = None
-    
-    """ if true, the session will fake all commands """
-    fake = False
-    
-    """ name of the instance this session is running """
-    instance_name = None
-
-    def __init__(self, instance_name, config, session_id, hydra_url):
+    def __init__(self, uplink, config, session_id, hydra_url):
         '''
         Constructor
         '''
-        self.instance_name = instance_name
+        self.uplink = uplink
         self.config = config
         self.session_id = session_id
         self.hydra_url = hydra_url
@@ -38,6 +20,11 @@ class Session(object):
 
         if self.config.has_option('general', 'fake'):
             self.fake = (self.config.get('general', 'fake') == "yes")
+        else:
+            self.fake = False
+        
+    def log_format(self, message):
+        return self.uplink.log_format("[" + self.session_id + "] " + message)
         
     def prepare(self):
         logging.info(self.setup.log_format(("preparing setup")))
@@ -89,5 +76,3 @@ class Session(object):
         """ delete the setup folder """
         if not self.fake:
             self.setup.cleanup()
-    
-    
