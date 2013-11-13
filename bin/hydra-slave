@@ -26,6 +26,10 @@ server = None
 """ flag for main loop """
 running = True
 
+""" message format for logging """
+log_formatting = "%(asctime)s %(levelname)s: %(message)s"
+log_level = logging.INFO
+
 def signal_handler(signum = None, frame = None):
     global running
     running = False
@@ -38,7 +42,7 @@ signal.signal(signal.SIGINT, signal_handler)
 
 if __name__ == '__main__':
     """ initialize logging options """
-    logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=logging.DEBUG)
+    logging.basicConfig(format=log_formatting, level=log_level)
     
     """ welcome message """
     logging.info("- hydra slave node 0.2 -")
@@ -77,7 +81,10 @@ if __name__ == '__main__':
     if config.has_option("general", "logfile"):
         logfile = os.path.join(workspace, config.get("general", "logfile"))
         logging.info("write logfile: " + logfile)
-        logging.getLogger().addHandler(logging.FileHandler(logfile))
+        fh = logging.FileHandler(logfile)
+        fh.setFormatter(logging.Formatter(log_formatting))
+        fh.setLevel(log_level)
+        logging.getLogger().addHandler(fh)
     
     """ create a listening tcp server if the port is defined """
     if config.has_option("general", "port"):
